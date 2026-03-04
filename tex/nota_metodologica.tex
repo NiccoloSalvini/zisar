@@ -1,0 +1,406 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[italian]{babel}
+\usepackage{mathpazo}
+\usepackage{amsmath,amssymb,bm}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}\onehalfspacing
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newcommand{\bW}{\mathbf{W}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\bZ}{\mathbf{Z}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bu}{\mathbf{u}}
+\newcommand{\bI}{\mathbf{I}}
+\newcommand{\bS}{\mathbf{S}}
+\DeclareMathOperator{\E}{\mathbb{E}}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\logit}{logit}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\tr}{tr}
+
+\title{Nota Metodologica sul modello ZISAR\\[6pt]
+\large Zero-Inflated Spatial Autoregressive Model}
+\author{Niccol\`{o} Salvini}
+\date{Marzo 2026 --- Documento interno per i coautori}
+
+\begin{document}
+\maketitle
+
+% ======================================================================
+\section{Idea di fondo}
+% ======================================================================
+
+Abbiamo dati di conteggio spaziali (es.\ accessi al pronto soccorso per comune) con due problemi simultanei:
+\begin{enumerate}
+  \item \textbf{Eccesso di zeri}: molti comuni registrano zero accessi, pi\`u di quanti un Poisson o un NB possano spiegare.
+  \item \textbf{Dipendenza spaziale}: comuni vicini hanno conteggi simili, indipendentemente dalle covariate.
+\end{enumerate}
+Nessun modello standard gestisce entrambi. Il ZINB ignora lo spazio; il SAR ignora gli zeri.
+Il ZISAR li combina introducendo un campo latente autoregressivo $\boldsymbol{\eta}$ che guida la media dei conteggi.
+
+% ======================================================================
+\section{Architettura del modello, passo per passo}
+% ======================================================================
+
+% --- 2.1 ---
+\subsection{Layer 1: il campo latente spaziale \texorpdfstring{$\boldsymbol{\eta}$}{eta}}
+
+Il cuore del modello \`e un'equazione autoregressiva simultanea (SAR) sullo spazio, scritta come:
+\begin{equation}\label{eq:sar}
+  \eta_i = \rho \sum_{j=1}^{n} w_{ij}\,\eta_j + \mathbf{x}_i'\boldsymbol{\beta} + u_i,
+  \qquad u_i \sim N(0, \sigma^2),
+\end{equation}
+dove $w_{ij}$ sono i pesi spaziali (es.\ contiguit\`a queen, standardizzata per riga), $\rho \in (-1,1)$ \`e il parametro autoregressivo spaziale, e $u_i$ \`e un effetto random individuale.
+
+\paragraph{Esempio numerico.}
+Prendiamo 4 comuni su una griglia $2 \times 2$:
+\[
+\bW = \begin{pmatrix}
+  0 & 1/2 & 1/2 & 0 \\
+  1/2 & 0 & 0 & 1/2 \\
+  1/2 & 0 & 0 & 1/2 \\
+  0 & 1/2 & 1/2 & 0
+\end{pmatrix}.
+\]
+Ogni comune ha un solo vicino a est e uno a sud (queen semplificata). Con $\rho = 0.4$, $\boldsymbol{\beta} = (1, 0.5)'$ (intercetta + una covariata $x$), $x = (0, 1, -1, 0.5)'$, e $\bu = (0.1, -0.2, 0.3, 0)'$, l'equazione in forma vettoriale \`e:
+\[
+  (\bI - 0.4\,\bW)\,\boldsymbol{\eta} = \bX\boldsymbol{\beta} + \bu.
+\]
+
+\paragraph{Forma ridotta.}
+Risolvendo per $\boldsymbol{\eta}$:
+\begin{equation}\label{eq:reduced}
+  \boldsymbol{\eta} = \underbrace{(\bI - \rho\,\bW)^{-1}}_{\bS(\rho)}\;(\bX\boldsymbol{\beta} + \bu).
+\end{equation}
+La matrice $\bS(\rho) = (\bI - \rho\bW)^{-1}$ \`e il \textbf{moltiplicatore spaziale}. Tramite la serie di potenze $\bS(\rho) = \bI + \rho\bW + \rho^2\bW^2 + \cdots$\,, si vede che:
+\begin{itemize}
+  \item il termine $\bI$ = effetto diretto (il comune su s\'e stesso),
+  \item $\rho\bW$ = effetto dei vicini diretti,
+  \item $\rho^2\bW^2$ = effetto dei ``vicini dei vicini'',
+  \item e cos\`i via, con peso decrescente come $\rho^s$.
+\end{itemize}
+Uno shock su un comune si \textbf{propaga} ai vicini, con intensit\`a governata da $\rho$.
+
+\paragraph{Calcolo esplicito ($2 \times 2$).}
+Con i valori sopra, $\bX\boldsymbol{\beta} + \bu = (1.1, 1.3, 0.8, 1.25)'$. Calcoliamo:
+\[
+\bI - 0.4\bW = \begin{pmatrix}
+  1 & -0.2 & -0.2 & 0 \\
+  -0.2 & 1 & 0 & -0.2 \\
+  -0.2 & 0 & 1 & -0.2 \\
+  0 & -0.2 & -0.2 & 1
+\end{pmatrix}.
+\]
+Invertendo (con un software, o osservando che la matrice ha struttura a blocchi):
+\[
+\boldsymbol{\eta} \approx (1.29,\; 1.52,\; 1.07,\; 1.46)'.
+\]
+Si noti come $\eta_2 = 1.52 > 1.3$: il valore \`e ``gonfiatö' rispetto a $\bX\boldsymbol{\beta} + u$ perch\'e il comune~2 \`e vicino a comuni con valori alti. Questo \`e esattamente l'effetto della dipendenza spaziale.
+
+% --- 2.2 ---
+\subsection{Layer 2: dalla latente al conteggio}
+
+Il campo latente governa la \textbf{media condizionale} del conteggio tramite il link esponenziale:
+\begin{equation}\label{eq:mean}
+  \mu_i = \exp(\eta_i).
+\end{equation}
+Con $\boldsymbol{\eta} \approx (1.29, 1.52, 1.07, 1.46)'$ otteniamo $\boldsymbol{\mu} \approx (3.63, 4.57, 2.92, 4.31)'$.
+Questi sono i ``tassi attesi''; il conteggio osservato viene poi dalla binomiale negativa:
+\[
+  y_i \mid \eta_i,\, s_i = 0 \;\sim\; \mathrm{NB}(\mu_i, \kappa),
+\]
+dove $\kappa > 0$ \`e il parametro di \emph{shape}. Maggiore \`e $\kappa$, minore \`e l'overdispersion; al limite $\kappa \to \infty$ si riduce al Poisson. In pratica, $\kappa$ tipicamente vale tra 0.5 e 10.
+
+La varianza condizionale \`e:
+\[
+  \Var[y_i \mid \eta_i, s_i=0] = \mu_i + \frac{\mu_i^2}{\kappa}.
+\]
+Per $\mu_i = 4.57$ e $\kappa = 2$: $\Var = 4.57 + 4.57^2/2 = 4.57 + 10.44 = 15.01$. Molto pi\`u di $\mu$, il che giustifica la NB rispetto al Poisson.
+
+% --- 2.3 ---
+\subsection{Layer 3: la zero-inflation}
+
+Oltre alla media del conteggio, introduciamo un meccanismo di \textbf{zeri strutturali} tramite un indicatore latente:
+\[
+  s_i \sim \text{Bernoulli}(\pi_i), \qquad \logit(\pi_i) = \mathbf{z}_i'\boldsymbol{\gamma}.
+\]
+Se $s_i = 1$, il comune $i$ registra $y_i = 0$ \emph{indipendentemente} dal tasso $\mu_i$ (assenza strutturale). Se $s_i = 0$, il conteggio viene dalla NB.
+
+L'osservazione finale \`e quindi:
+\[
+  y_i = \begin{cases}
+    0 & \text{con probabilit\`a } \pi_i \quad \text{(zero strutturale)}, \\
+    \text{NB}(\mu_i, \kappa) & \text{con probabilit\`a } 1 - \pi_i \quad \text{(conteggio)}.
+  \end{cases}
+\]
+
+\paragraph{Esempio.}
+Se $\boldsymbol{\gamma} = (-1, 0.4)'$ e $z_i = 0.5$, allora $\logit(\pi_i) = -1 + 0.4 \times 0.5 = -0.8$ e $\pi_i = 1/(1+e^{0.8}) \approx 0.31$.
+Vuol dire che il comune $i$ ha il 31\% di probabilit\`a di produrre uno zero strutturale, \emph{a prescindere} dal suo tasso $\mu_i$.
+
+La probabilit\`a complessiva di osservare $y_i = 0$ \`e:
+\[
+  P(y_i = 0) = \pi_i + (1 - \pi_i)\left(\frac{\kappa}{\kappa + \mu_i}\right)^{\!\kappa}.
+\]
+Il primo addendo sono gli zeri strutturali; il secondo gli zeri ``di campionamento'' (la NB pu\`o comunque dare zero).
+
+Con $\pi_i = 0.31$, $\mu_i = 4.57$, $\kappa = 2$:
+\[
+  P(y_i = 0) = 0.31 + 0.69 \times \left(\frac{2}{6.57}\right)^2 = 0.31 + 0.69 \times 0.093 = 0.31 + 0.064 = 0.374.
+\]
+Circa il 37\% di probabilit\`a di osservare zero, di cui il 31\% \`e strutturale.
+
+% --- 2.4 ---
+\subsection{Riepilogo: il flusso generativo completo}
+
+\begin{center}
+\fbox{\parbox{0.85\textwidth}{
+\begin{enumerate}
+  \item Fisso le covariate $\bX$, $\bZ$, la matrice spaziale $\bW$.
+  \item Genero gli effetti random: $u_i \sim N(0, \sigma^2)$.
+  \item Calcolo il campo latente: $\boldsymbol{\eta} = (\bI - \rho\bW)^{-1}(\bX\boldsymbol{\beta} + \bu)$.
+  \item Ottengo le medie: $\mu_i = \exp(\eta_i)$.
+  \item Calcolo le probabilit\`a di zero strutturale: $\pi_i = \logit^{-1}(\mathbf{z}_i'\boldsymbol{\gamma})$.
+  \item Per ogni comune: con probabilit\`a $\pi_i$ pongo $y_i = 0$; altrimenti genero $y_i \sim \mathrm{NB}(\mu_i, \kappa)$.
+\end{enumerate}
+}}
+\end{center}
+
+I parametri da stimare sono: $\boldsymbol{\beta}$ (effetti covariate), $\rho$ (dipendenza spaziale), $\boldsymbol{\gamma}$ (zero-inflation), $\kappa$ (overdispersion NB), $\sigma^2$ (varianza effetti random).
+
+% ======================================================================
+\section{Perch\'e SAR sulla latente e non su \texorpdfstring{$\by$}{y}?}
+% ======================================================================
+
+L'alternativa classica sarebbe:
+\[
+  \log(\mu_i) = \mathbf{x}_i'\boldsymbol{\beta} + \rho \sum_j w_{ij}\,y_j + v_i.
+\]
+Qui $y_j$ appare sia come outcome che come regressore $\Rightarrow$ \textbf{endogeneit\`a}. Per stimarlo servono variabili strumentali (Lambert 2010), con tutti i problemi annessi (strumenti deboli, inconsistenza in piccoli campioni).
+
+Nel ZISAR, la SAR opera sulla \textbf{latente} $\boldsymbol{\eta}$:
+\[
+  \boldsymbol{\eta} = \rho\bW\boldsymbol{\eta} + \bX\boldsymbol{\beta} + \bu.
+\]
+Non c'\`e endogeneit\`a perch\'e $\boldsymbol{\eta}$ non \`e osservato. Si pu\`o fare ML direttamente. Inoltre, si conserva la decomposizione LeSage-Pace degli effetti (diretti/indiretti/totali), che \`e il punto forte della spatial econometrics.
+
+\paragraph{Analogia con il SAR lineare.}
+Nel SAR lineare $\by = \rho\bW\by + \bX\boldsymbol{\beta} + \bu$ la forma ridotta \`e $\by = (\bI - \rho\bW)^{-1}(\bX\boldsymbol{\beta} + \bu)$, identica nella struttura alla nostra~\eqref{eq:reduced}. La differenza \`e che nel ZISAR la SAR opera su $\boldsymbol{\eta}$ (lo spazio \emph{latente}), non su $\by$ (lo spazio \emph{osservato}). Dopo la trasformazione $\mu = \exp(\eta)$, la non-linearit\`a spezza la simmetria, ma la logica degli spillover resta uguale.
+
+% ======================================================================
+\section{Stima: TMB e approssimazione di Laplace}
+% ======================================================================
+
+% --- 4.1 ---
+\subsection{Il problema}
+
+La verosimiglianza marginale richiede di integrare fuori il campo latente $\boldsymbol{\eta}$:
+\[
+  L(\boldsymbol{\theta}) = \int_{\mathbb{R}^n}
+  \underbrace{\prod_{i=1}^{n} f(y_i \mid \eta_i, \pi_i, \kappa)}_{\text{likelihood dati} \mid \boldsymbol{\eta}}
+  \;\cdot\;
+  \underbrace{p(\boldsymbol{\eta} \mid \boldsymbol{\beta}, \rho, \sigma^2)}_{\text{prior SAR su } \boldsymbol{\eta}}
+  \;\mathrm{d}\boldsymbol{\eta}.
+\]
+L'integrale \`e in $n$ dimensioni (una per ogni unit\`a spaziale). Non ha forma chiusa perch\'e la NB \`e non-lineare in $\eta$.
+
+% --- 4.2 ---
+\subsection{L'approssimazione di Laplace}
+
+L'idea \`e semplice: espandiamo l'integranda attorno al suo \textbf{modo} (il massimo rispetto a $\boldsymbol{\eta}$) al second'ordine, ottenendo un integrale gaussiano che si calcola in forma chiusa.
+
+Definiamo la \textbf{negative log-joint}:
+\[
+  f(\boldsymbol{\eta}; \boldsymbol{\theta}) =
+  -\sum_{i=1}^{n} \log f(y_i \mid \eta_i, \pi_i, \kappa)
+  - \log p(\boldsymbol{\eta} \mid \boldsymbol{\beta}, \rho, \sigma^2).
+\]
+Sia $\hat{\boldsymbol{\eta}}(\boldsymbol{\theta}) = \arg\min_{\boldsymbol{\eta}} f(\boldsymbol{\eta}; \boldsymbol{\theta})$ il modo condizionale, e $\mathbf{H} = \nabla^2_{\boldsymbol{\eta}} f\big|_{\hat{\boldsymbol{\eta}}}$ l'Hessiano (matrice $n \times n$).
+
+L'approssimazione di Laplace d\`a:
+\begin{equation}\label{eq:laplace}
+  \log L(\boldsymbol{\theta}) \approx -f(\hat{\boldsymbol{\eta}}; \boldsymbol{\theta}) + \tfrac{n}{2}\log(2\pi) - \tfrac{1}{2}\log\det(\mathbf{H}).
+\end{equation}
+
+\paragraph{Cosa sono i tre pezzi?}
+\begin{enumerate}
+  \item $-f(\hat{\boldsymbol{\eta}})$: la log-verosimiglianza congiunta nel punto di massimo.
+  \item $\frac{n}{2}\log(2\pi)$: costante normalizzante della gaussiana.
+  \item $-\frac{1}{2}\log\det(\mathbf{H})$: penalizzazione per la ``curvatura'' --- misura quanto \`e concentrata la distribuzione di $\boldsymbol{\eta}$ attorno al modo.
+\end{enumerate}
+
+% --- 4.3 ---
+\subsection{Struttura dell'Hessiano}
+
+L'Hessiano ha due contributi:
+\[
+  \mathbf{H} = \underbrace{\frac{1}{\sigma^2}(\bI - \rho\bW)'(\bI - \rho\bW)}_{\text{da prior SAR}} + \underbrace{\diag(d_1,\ldots,d_n)}_{\text{da likelihood dati}},
+\]
+dove $d_i = -\partial^2 \log f(y_i \mid \eta_i)/\partial\eta_i^2 > 0$.
+
+Il punto cruciale \`e che $\mathbf{H}$ \`e \textbf{sparso}: la parte SAR ha lo stesso pattern di non-zeri di $\bW'\bW$, e la parte dati \`e diagonale. Questo permette di fattorizzare $\mathbf{H}$ tramite Cholesky sparso in tempo quasi-lineare in $n$, anzich\'e $O(n^3)$.
+
+% --- 4.4 ---
+\subsection{Il log-determinante della SAR}
+
+La prior SAR su $\boldsymbol{\eta}$ contiene il termine $|\det(\bI - \rho\bW)|$. Calcolarlo direttamente costerebbe $O(n^3)$. Il trucco \`e pre-calcolare gli autovalori $\lambda_1,\ldots,\lambda_n$ di $\bW$ (costo una tantum $O(n^3)$, ma fatto una sola volta) e poi:
+\[
+  \log|\det(\bI - \rho\bW)| = \sum_{i=1}^{n} \log|1 - \rho\,\lambda_i|.
+\]
+Questo costa $O(n)$ per ogni valutazione e permette di ricalcolarlo ad ogni iterazione dell'ottimizzatore senza problemi.
+
+\paragraph{Esempio.}
+Con la nostra $\bW$ $4 \times 4$, gli autovalori sono $\lambda = (1, 0, 0, -1)$.
+A $\rho = 0.4$: $\log|\det| = \log|0.6| + \log|1| + \log|1| + \log|1.4| = -0.511 + 0 + 0 + 0.336 = -0.175$.
+
+% --- 4.5 ---
+\subsection{L'algoritmo in pratica (TMB)}
+
+TMB (Template Model Builder) \`e un pacchetto R/C++ che implementa tutto questo automaticamente:
+
+\begin{enumerate}
+  \item Si scrive un template C++ che definisce la negative log-joint $f(\boldsymbol{\eta}; \boldsymbol{\theta})$.
+  \item TMB calcola gradienti e Hessiani tramite \textbf{automatic differentiation} (AD): non approssimazioni finite, ma derivate esatte al costo di una singola valutazione.
+  \item Si dichiara $\boldsymbol{\eta}$ come ``random effect'': TMB fa automaticamente l'inner loop (Newton per trovare $\hat{\boldsymbol{\eta}}$) e l'outer loop (L-BFGS-B per massimizzare la Laplace approssimata su $\boldsymbol{\theta}$).
+  \item Gli standard error vengono dal delta method sull'Hessiano della verosimiglianza marginale.
+\end{enumerate}
+
+\paragraph{Riparametrizzazioni.}
+Per evitare vincoli durante l'ottimizzazione, lavoriamo su scala trasformata:
+\begin{itemize}
+  \item $\rho = \tanh(\tilde{\rho})$, cos\`i $\tilde{\rho} \in \mathbb{R} \Rightarrow \rho \in (-1,1)$;
+  \item $\kappa = \exp(\tilde{\kappa})$, cos\`i $\tilde{\kappa} \in \mathbb{R} \Rightarrow \kappa > 0$;
+  \item $\sigma = \exp(\tilde{\sigma})$, cos\`i $\tilde{\sigma} \in \mathbb{R} \Rightarrow \sigma > 0$.
+\end{itemize}
+TMB riporta automaticamente gli SE sulla scala originale tramite delta method.
+
+% ======================================================================
+\section{Effetti diretti, indiretti e totali}
+% ======================================================================
+
+Nei modelli spaziali i coefficienti $\boldsymbol{\beta}$ \textbf{non sono effetti marginali}. Un cambio di $x$ nel comune $j$ si propaga a tutti i comuni tramite $\bS(\rho)$.
+
+% --- 5.1 ---
+\subsection{Derivazione}
+
+Consideriamo la $r$-esima covariata. L'effetto di un cambio unitario di $x_{jr}$ su $\E[y_i]$ si ottiene derivando:
+\[
+  \frac{\partial\,\E[y_i]}{\partial\,x_{jr}}
+  = (1 - \pi_i)\,\mu_i\,\frac{\partial\,\eta_i}{\partial\,x_{jr}}
+  = (1 - \pi_i)\,\mu_i\,[\bS(\rho)]_{ij}\,\beta_r.
+\]
+Qui $[\bS(\rho)]_{ij}$ \`e l'elemento $(i,j)$ del moltiplicatore spaziale.
+
+In forma matriciale, la matrice $n \times n$ degli effetti \`e:
+\[
+  \mathbf{M}_r = \diag\bigl((1 - \boldsymbol{\pi}) \odot \boldsymbol{\mu}\bigr)\;\bS(\rho)\;\beta_r.
+\]
+
+% --- 5.2 ---
+\subsection{Le tre misure sintetiche}
+
+\begin{itemize}
+  \item \textbf{Effetto diretto medio} = $n^{-1}\tr(\mathbf{M}_r)$ --- media degli elementi diagonali: ``quanto cambia il mio $y$ se cambio il mio $x$''.
+  \item \textbf{Effetto totale medio} = $n^{-1}\mathbf{1}'\mathbf{M}_r\mathbf{1}$ --- media delle somme per riga: ``quanto cambia il mio $y$ se \emph{tutti} cambiano $x$''.
+  \item \textbf{Effetto indiretto medio} = totale $-$ diretto: ``quanto del cambio viene dai \emph{vicini}''.
+\end{itemize}
+
+\paragraph{Esempio numerico ($4 \times 4$).}
+Con $\boldsymbol{\eta} = (1.29, 1.52, 1.07, 1.46)'$, $\boldsymbol{\mu} = (3.63, 4.57, 2.92, 4.31)'$, $\boldsymbol{\pi} = (0.31, 0.27, 0.36, 0.29)'$, $\beta_1 = 0.5$ e $\rho = 0.4$:
+
+\[
+\diag\bigl((1-\boldsymbol{\pi})\odot\boldsymbol{\mu}\bigr) =
+\diag(2.50, 3.34, 1.87, 3.06).
+\]
+
+Supponiamo che $\bS(0.4)$ sia (approssimata):
+\[
+\bS(0.4) \approx \begin{pmatrix}
+  1.10 & 0.24 & 0.24 & 0.10 \\
+  0.24 & 1.10 & 0.10 & 0.24 \\
+  0.24 & 0.10 & 1.10 & 0.24 \\
+  0.10 & 0.24 & 0.24 & 1.10
+\end{pmatrix}.
+\]
+
+Allora $\mathbf{M}_1 = \diag(\ldots) \times \bS(0.4) \times 0.5$. L'elemento $(1,1)$ (effetto diretto del comune 1 su s\'e stesso) \`e $2.50 \times 1.10 \times 0.5 = 1.375$. L'elemento $(1,2)$ (effetto indiretto: il cambio di $x$ nel comune 2 su $y$ del comune 1) \`e $2.50 \times 0.24 \times 0.5 = 0.300$.
+
+L'effetto diretto medio $\approx n^{-1}(1.375 + 1.837 + 1.029 + 1.683) = 1.48$.
+Se $\rho = 0$, l'effetto indiretto sarebbe esattamente zero (la matrice sarebbe diagonale).
+
+% ======================================================================
+\section{Propriet\`a asintotiche}
+% ======================================================================
+
+\subsection{Consistenza}
+
+Lo stimatore \`e consistente ($\hat{\boldsymbol{\theta}}_n \overset{p}{\to} \boldsymbol{\theta}_0$) sotto condizioni standard. L'argomento \`e il seguente:
+\begin{enumerate}
+  \item L'errore dell'approssimazione di Laplace \`e $O(n^{-1})$ (Tierney \& Kadane 1986). Quindi la log-verosimiglianza approssimata e quella vera convergono uniformemente quando normalizzate per $n$.
+  \item La log-verosimiglianza vera, per la legge dei grandi numeri (adattata per dati spazialmente dipendenti ma con dipendenza limitata grazie alla struttura di $\bW$), converge al suo valore atteso.
+  \item Per ipotesi di identificazione, il valore atteso ha un unico massimo in $\boldsymbol{\theta}_0$.
+  \item Segue consistenza per l'argomento standard degli estimatori di estremo (Newey \& McFadden 1994).
+\end{enumerate}
+
+\subsection{Normalit\`a asintotica}
+
+Lo stimatore \`e asintoticamente normale:
+\[
+  \sqrt{n}\,(\hat{\boldsymbol{\theta}}_n - \boldsymbol{\theta}_0) \overset{d}{\to} N\bigl(\mathbf{0},\;\mathcal{I}(\boldsymbol{\theta}_0)^{-1}\bigr),
+\]
+dove $\mathcal{I}(\boldsymbol{\theta}_0)$ \`e l'informazione di Fisher per osservazione. Questo giustifica gli intervalli di confidenza e i test di Wald riportati da TMB.
+
+% ======================================================================
+\section{Cosa mostrano le simulazioni Monte Carlo}
+% ======================================================================
+
+Abbiamo generato dati dal DGP del ZISAR con parametri noti e stimato tre modelli (ZINB, SAR-NB con 2SLS, ZISAR) su 100 repliche per 9 scenari ($n \in \{100, 225, 400\}$, $\rho \in \{0, 0.3, 0.6\}$).
+
+\subsection{Risultati principali}
+
+\begin{enumerate}
+  \item \textbf{Il ZISAR recupera $\rho$ correttamente.}
+    A $n=400$, $\rho = 0.6$: il bias del ZISAR \`e $-0.007$ (praticamente zero), contro $-0.479$ per il SAR-NB. Il 2SLS non funziona quando ci sono zeri strutturali.
+
+  \item \textbf{I $\boldsymbol{\beta}$ sono stimati meglio con il ZISAR.}
+    Il ZINB che ignora lo spazio ha bias positivo su $\beta_1$ che cresce con $\rho$ ($+0.055$ a $\rho=0.6$, $n=400$). Il ZISAR ha bias $-0.002$.
+
+  \item \textbf{Il ZISAR ha la migliore verosimiglianza.}
+    Mediana della log-likelihood a $n=400$, $\rho=0.6$: ZISAR $= -501$, ZINB $= -884$, SAR-NB $= -887$.
+
+  \item \textbf{Trade-off $\kappa$-$\sigma$.}
+    In circa il 10--15\% delle repliche, lo stimatore di $\kappa$ va al bound (l'overdispersion NB viene assorbita dagli effetti random $\sigma^2$). Questo \`e un fenomeno noto nei modelli NB mixed; nelle applicazioni si pu\`o risolvere con prior informative o fissando $\sigma$.
+\end{enumerate}
+
+% ======================================================================
+\section{Riassunto: cosa distingue il ZISAR dai concorrenti}
+% ======================================================================
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+& ZINB & SAR-NB (2SLS) & \textbf{ZISAR} \\
+\midrule
+Zero-inflation & \checkmark & & \checkmark \\
+Dipendenza spaziale & & \checkmark & \checkmark \\
+Effetti random & & & \checkmark \\
+Stima diretta $\rho$ (ML) & & & \checkmark \\
+Effetti diretti/indiretti & & \checkmark$^*$ & \checkmark \\
+No endogeneit\`a & \checkmark & & \checkmark \\
+\bottomrule
+\end{tabular}
+
+\medskip
+{\footnotesize $^*$ La decomposizione per il SAR-NB 2SLS \`e basata su un modello mal specificato (ignora gli zeri strutturali).}
+\end{table}
+
+Il ZISAR \`e il primo modello che combina zero-inflation, dipendenza spaziale tipo SAR, ed effetti random in un unico framework, con stima ML tramite Laplace e decomposizione degli effetti.
+
+\end{document}

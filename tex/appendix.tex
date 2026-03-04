@@ -1,0 +1,125 @@
+\section{Proofs}\label{app:proofs}
+
+% ---------------------------------------------------------------------------
+\subsection{Proof of Proposition~\ref{prop:consistency}}\label{app:proof_consistency}
+
+We verify the conditions of the extremum-estimator consistency theorem \citep[Theorem~2.1]{newey_mcfadden1994}.
+
+\paragraph{Laplace approximation error.}
+Let $\ell(\btheta) = \log\int p(\by,\boldsymbol{\eta}\mid\btheta)\,\mathrm{d}\boldsymbol{\eta}$ denote the exact marginal log-likelihood and $\ell_{\mathrm{LA}}(\btheta)$ the Laplace approximation \eqref{eq:laplace}.
+By \citet{tierney_kadane1986}, $|\ell_{\mathrm{LA}}(\btheta) - \ell(\btheta)| = O(1)$ uniformly over $\Theta$ (the error is bounded because the conditional density $f(y_i\mid\eta_i,\pi_i;\,\kappa)$ has bounded derivatives in $\eta_i$ under Assumption~\ref{ass:param}).
+Dividing by $n$: $|n^{-1}\ell_{\mathrm{LA}}(\btheta) - n^{-1}\ell(\btheta)| = O(n^{-1}) \to 0$.
+
+\paragraph{Uniform convergence.}
+The exact marginal log-likelihood satisfies $n^{-1}\ell(\btheta) \to Q(\btheta) \equiv \E[\log p(y_1\mid\btheta)]$ uniformly over $\Theta$, by the uniform law of large numbers.
+The key requirement is that the summands are bounded and equicontinuous in $\btheta$, which holds under the compactness of $\Theta$ (Assumption~\ref{ass:param}) and the boundedness of $\bW$ (Assumption~\ref{ass:W}).
+Combined with the vanishing Laplace error, $\sup_{\btheta\in\Theta}|n^{-1}\ell_{\mathrm{LA}}(\btheta) - Q(\btheta)| \plim 0$.
+
+\paragraph{Identification.}
+By Assumption~\ref{ass:identification}, $Q(\btheta)$ has a unique maximum at $\btheta_0$.
+
+\paragraph{Conclusion.}
+Compactness of $\Theta$, uniform convergence, and identifiable uniqueness satisfy the conditions of the extremum-estimator theorem, giving $\hat{\btheta}_n \plim \btheta_0$.
+\hfill$\square$
+
+% ---------------------------------------------------------------------------
+\subsection{Proof of Proposition~\ref{prop:normality}}\label{app:proof_normality}
+
+\paragraph{Score expansion.}
+By a mean-value expansion around $\btheta_0$:
+\[
+  \mathbf{0} = n^{-1/2}\frac{\partial\ell_{\mathrm{LA}}}{\partial\btheta}\bigg|_{\hat{\btheta}}
+  = n^{-1/2}\frac{\partial\ell_{\mathrm{LA}}}{\partial\btheta}\bigg|_{\btheta_0}
+  + n^{-1}\frac{\partial^2\ell_{\mathrm{LA}}}{\partial\btheta\,\partial\btheta'}\bigg|_{\bar{\btheta}}\;
+  \sqrt{n}(\hat{\btheta} - \btheta_0).
+\]
+
+\paragraph{CLT for the score.}
+The Laplace-approximate score $\partial\ell_{\mathrm{LA}}/\partial\btheta$ can be decomposed as a sum of local contributions $s_i(\btheta)$ that depend on unit $i$ and its spatial neighbours.
+Under Assumption~\ref{ass:W}, the spatial weights have uniformly bounded row and column sums, so each $s_i$ depends on at most $O(1)$ other units (the neighbourhood is bounded).
+This induces a mixing structure that satisfies the CLT for spatially dependent arrays \citep[see][Theorem~3.1]{lee2004}:
+\[
+  n^{-1/2}\sum_{i=1}^n s_i(\btheta_0) \dlim N\!\bigl(\mathbf{0},\,\boldsymbol{\Omega}_0\bigr),
+\]
+where $\boldsymbol{\Omega}_0 = \lim_{n\to\infty} \Var\bigl[n^{-1/2}\sum_i s_i(\btheta_0)\bigr]$.
+
+\paragraph{Hessian convergence.}
+By the uniform LLN,
+\[
+  n^{-1}\frac{\partial^2\ell_{\mathrm{LA}}}{\partial\btheta\,\partial\btheta'}\bigg|_{\bar{\btheta}}
+  \plim \mathcal{H}_0 \equiv \E\!\left[\frac{\partial^2 \log p(y_1\mid\btheta)}{\partial\btheta\,\partial\btheta'}\bigg|_{\btheta_0}\right],
+\]
+which is negative definite by Assumption~\ref{ass:identification}.
+Under standard regularity (information matrix equality), $\mathcal{H}_0 = -\mathcal{I}(\btheta_0) = -\boldsymbol{\Omega}_0$.
+
+\paragraph{Combining.}
+Rearranging the score expansion:
+\[
+  \sqrt{n}(\hat{\btheta} - \btheta_0) = -\mathcal{H}_0^{-1}\;n^{-1/2}\sum_i s_i(\btheta_0) + o_p(1) \dlim N\!\bigl(\mathbf{0},\,\mathcal{I}(\btheta_0)^{-1}\bigr).
+\]
+\hfill$\square$
+
+% ---------------------------------------------------------------------------
+\subsection{Proof of Proposition~\ref{prop:effects}}\label{app:proof_effects}
+
+Under the restricted ZISAR ($\mathbf{g}=\mathbf{0}$), the marginal expectation of $y_i$ evaluated at the conditional mode is
+\[
+  \E[y_i] \approx (1 - \pi_i)\,\mu_i, \qquad \mu_i = \exp(\eta_i), \quad \pi_i = \logit^{-1}(\mathbf{z}_i'\bgamma).
+\]
+
+The latent predictor at the mode satisfies $\hat{\boldsymbol{\eta}} \approx \mathbf{S}(\rho)\bX\bbeta$ (ignoring the random-effect contribution, which integrates out at the mode).
+The partial derivative of $\boldsymbol{\eta}$ with respect to $x_{jr}$ is
+\[
+  \frac{\partial\eta_i}{\partial x_{jr}} = [\mathbf{S}(\rho)]_{ij}\,\beta_r.
+\]
+The effect on $\E[y_i]$ is
+\[
+  \frac{\partial\E[y_i]}{\partial x_{jr}} = (1-\pi_i)\,\mu_i\,[\mathbf{S}(\rho)]_{ij}\,\beta_r + \underbrace{(\text{inflation channel})}_{\text{diagonal only}}.
+\]
+Stacking: $\mathbf{M}_r = \diag((1-\hat{\bpi})\odot\hat{\bmu})\,\mathbf{S}(\rho)\,\beta_r$.
+
+\textbf{(i)} When $\rho \in [0,1)$ and $\bW \geq 0$ entrywise, the power-series $\mathbf{S}(\rho) = \sum_{s=0}^\infty \rho^s\bW^s$ has all non-negative entries.
+Since $(1-\pi_i)\mu_i > 0$, $\mathbf{M}_r$ has the same sign as $\beta_r$.
+
+\textbf{(ii)} When $\rho = 0$, $\mathbf{S}(\rho) = \mathbf{I}_n$ and $\mathbf{M}_r$ is diagonal, so all indirect effects (off-diagonal elements) are zero.
+For $\rho \neq 0$, $\mathbf{S}(\rho)$ has positive off-diagonal elements (since $\bW^s$ has positive entries for $s \geq 1$ on connected lattices), making indirect effects non-zero.
+
+\textbf{(iii)} Each element of $\mathbf{S}(\rho) = \sum_{s=0}^\infty \rho^s\bW^s$ is monotonically increasing in $|\rho|$ for $\rho \geq 0$ (since all terms $\rho^s[\bW^s]_{ij}$ are non-negative and increasing in $\rho$).
+\hfill$\square$
+
+% =============================================================================
+\section{Sensitivity Analysis}\label{app:sensitivity}
+
+Table~\ref{tab:sensitivity_W} reports ZISAR estimates under alternative spatial weights specifications for the empirical application (Section~\ref{sec:application}).
+
+\begin{table}[htbp]
+\centering
+\caption{Sensitivity of ZISAR estimates to the choice of spatial weights.}\label{tab:sensitivity_W}
+\small
+\begin{tabular}{lccc}
+\toprule
+& $k$-NN ($k=4$) & $k$-NN ($k=6$) & $k$-NN ($k=8$) \\
+\midrule
+$\hat{\rho}$       & \multicolumn{3}{c}{\emph{to be filled from R output}} \\
+$\hat{\beta}_1$ (pop)   & & & \\
+$\hat{\beta}_2$ (aging)  & & & \\
+$\hat{\kappa}$      & & & \\
+AIC                 & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{TMB Implementation Details}\label{app:tmb}
+
+The \texttt{TMB} template declares $\boldsymbol{\eta}$ as random effects and uses the SAR prior density:
+\[
+  -\log p(\boldsymbol{\eta}\mid\bbeta,\rho,\sigma) = \frac{n}{2}\log(2\pi\sigma^2) - \log|\det(\mathbf{I}-\rho\bW)| + \frac{1}{2\sigma^2}\|(\mathbf{I}-\rho\bW)\boldsymbol{\eta} - \bX\bbeta\|^2.
+\]
+The log-determinant is computed via pre-computed eigenvalues $\lambda_1,\ldots,\lambda_n$ of $\bW$ (passed as data).
+For possibly complex eigenvalues ($\lambda_j = a_j + b_j\mathrm{i}$):
+\[
+  \log|\det(\mathbf{I}-\rho\bW)| = \frac{1}{2}\sum_{j=1}^n \log\bigl[(1-\rho a_j)^2 + (\rho b_j)^2\bigr].
+\]
+The sparse matrix--vector product $(\mathbf{I}-\rho\bW)\boldsymbol{\eta}$ is computed via Eigen's sparse algebra, preserving the $O(\mathrm{nnz}(\bW))$ complexity.
+The reparametrisation $\rho = \tanh(\tilde{\rho})$ ensures $\rho \in (-1,1)$ without box constraints.
+Standard errors on the original scale are obtained by the delta method through \texttt{TMB}'s \texttt{ADREPORT} mechanism.

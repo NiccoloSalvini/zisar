@@ -1,0 +1,116 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- Encoding and fonts ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathpazo}
+
+% --- Mathematics ---
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+
+% --- Layout ---
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{parskip}
+
+% --- Graphics and tables ---
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% --- Hyperlinks ---
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=blue,urlcolor=blue]{hyperref}
+
+% --- Bibliography ---
+\usepackage{natbib}
+\bibliographystyle{plainnat}
+
+% --- Algorithms ---
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% --- Theorem environments ---
+\newtheorem{proposition}{Proposition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+\newtheorem{definition}{Definition}
+
+% --- Custom commands ---
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\bW}{\mathbf{W}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\bZ}{\mathbf{Z}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bv}{\mathbf{v}}
+\newcommand{\bu}{\mathbf{u}}
+\newcommand{\bbeta}{\boldsymbol{\beta}}
+\newcommand{\bgamma}{\boldsymbol{\gamma}}
+\newcommand{\bmu}{\boldsymbol{\mu}}
+\newcommand{\bpi}{\boldsymbol{\pi}}
+\newcommand{\btheta}{\boldsymbol{\theta}}
+\newcommand{\plim}{\overset{p}{\longrightarrow}}
+\newcommand{\dlim}{\overset{d}{\longrightarrow}}
+\DeclareMathOperator{\logit}{logit}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\tr}{tr}
+
+% =============================================================================
+\title{ZISAR: A Zero-Inflated Spatial Autoregressive Model\\for Count Data with Random Effects}
+
+\author{
+  Niccol\`{o} Salvini\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Milan, Italy.}
+  \and
+  Giuseppe Arbia\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Milan, Italy.}
+  \and
+  Vincenzo Nardelli\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Rome, Italy.}
+}
+
+\date{\today}
+
+% =============================================================================
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\noindent\textbf{Keywords:} Spatial autoregression; zero-inflated models; count data; negative binomial; random effects; two-step estimation; spatial spillovers.
+
+\newpage
+\tableofcontents
+\newpage
+
+\input{introduction}
+
+\input{literature}
+
+\input{model}
+
+\input{estimation}
+
+\input{montecarlo}
+
+\input{application}
+
+\input{conclusion}
+
+\newpage
+\bibliography{references}
+
+\newpage
+\appendix
+\input{appendix}
+
+\end{document}

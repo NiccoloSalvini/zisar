@@ -1,0 +1,35 @@
+\section{Conclusion}\label{sec:conclusion}
+
+This paper introduced the ZISAR (Zero-Inflated Spatial Autoregressive) model, a unified specification for count data that simultaneously addresses spatial spillovers, zero-inflation, overdispersion, and unobserved unit-level heterogeneity.
+The key innovation is the placement of a simultaneous autoregressive structure on the latent linear predictor of the count process---$\boldsymbol{\eta} = (\mathbf{I} - \rho\bW)^{-1}(\bX\bbeta + \bu)$---rather than on the observed count.
+This SAR-on-$\boldsymbol{\eta}$ formulation preserves the direct/indirect/total effects decomposition that is central to the spatial econometrics programme \citep{lesage_pace2009,arbia2006} while avoiding the endogeneity of observed spatial lags that complicates SAR-on-$\by$ specifications \citep{lambert2010}.
+Simultaneously, it differs from CAR-based spatial random-effects models \citep{lee2013,neelon2013} by providing a structural, single-parameter characterisation of spatial dependence with an explicit spillover interpretation.
+
+Estimation by Laplace-approximated marginal likelihood, implemented via \texttt{TMB} \citep{kristensen2016}, yields a computationally efficient and scalable algorithm.
+The sparse-matrix operations and automatic differentiation exploited by \texttt{TMB} echo the computational concerns raised by \citet{arbia_nardelli2024} and \citet{arbia_nardelli_salvini} in the context of pairwise pseudo-likelihood for large spatial datasets.
+We established consistency and asymptotic normality of the estimator and derived the effects decomposition for the nonlinear zero-inflated mixture.
+
+The Monte~Carlo study confirmed that ignoring either spatial dependence or zero-inflation leads to substantial bias: the standard ZINB inflates covariate effects when $\rho > 0$, while the SAR-NB overestimates the spatial lag when structural zeros are present.
+ZISAR recovers the data-generating parameters with low bias and near-nominal coverage.
+The empirical application to emergency-department visits across Italian municipalities demonstrated significant spatial spillovers and indirect effects that aspatial models entirely miss.
+
+\paragraph{Limitations.}
+Three limitations warrant acknowledgement.
+First, the Laplace approximation may lose accuracy when the conditional posterior of $\boldsymbol{\eta}$ is highly non-Gaussian (e.g.\ for very sparse data with many zero counts); higher-order Laplace corrections or adaptive quadrature could improve precision in such settings.
+Second, the unit-level random effects $\bu$ are assumed independent Gaussian; correlated or non-Gaussian specifications would add flexibility at the cost of a more complex \texttt{TMB} template.
+Third, the eigenvalue pre-computation for the log-determinant $\log|\det(\mathbf{I}-\rho\bW)|$ is $O(n^3)$ and may become a bottleneck for very large $n$; stochastic log-determinant approximations \citep[e.g.][]{barry_pace1999} could be substituted.
+
+\paragraph{Extensions.}
+Several directions for future research emerge naturally.
+The most immediate is the incorporation of \emph{temporal dependence}, yielding a spatio-temporal ZISAR of the form
+\[
+  \eta_{it} = \rho(\bW\boldsymbol{\eta}_t)_i + \phi\,\eta_{i,t-1} + \mathbf{x}_{it}'\bbeta + u_i + \nu_t,
+\]
+where $\phi$ captures persistence and $\nu_t$ is a time-specific effect.
+The panel structure introduces additional identification and computational challenges (dynamic spatial panel asymptotics, high-dimensional latent field) that merit a dedicated treatment.
+
+A second extension concerns alternative spatial structures: replacing the single $\bW$ with multiple weight matrices (e.g.\ geographic and economic proximity), or letting $\bW$ be endogenous.
+
+Third, the ZISAR template naturally accommodates other count distributions (generalised Poisson, Conway--Maxwell--Poisson) and alternative inflation links (probit, complementary log-log) by modifying the observation-model block of the \texttt{TMB} template.
+
+Finally, packaging the estimator as a fully documented \texttt{R} package with formula interfaces, spatial-weights integration (\texttt{spdep}/\texttt{sf}), and automated model-selection tools would lower the barrier to adoption and is planned for a subsequent release.

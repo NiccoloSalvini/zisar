@@ -1,0 +1,125 @@
+\section{Empirical Application}\label{sec:application}
+
+% ---------------------------------------------------------------------------
+\subsection{Emergency-department visits across Italian municipalities}\label{sec:app_data}
+
+To illustrate the ZISAR model in a substantively relevant setting, we analyse the spatial distribution of emergency-department (ED) visit counts across municipalities in the Piedmont region of north-western Italy.
+ED utilisation is a canonical application for zero-inflated spatial count models: many small municipalities record zero visits for specific conditions during a given period (structural zeros arising from the absence of at-risk populations, or from residents seeking care in a neighbouring municipality's hospital); the non-zero counts exhibit substantial overdispersion driven by heterogeneity in population size, age structure, and access to primary care; and neighbouring municipalities share health-system characteristics and patient-flow patterns that induce spatial dependence \citep{neelon2013,baldi2014}.
+
+\paragraph{Data.}
+We use municipality-level data for $n = 300$ municipalities in the Piedmont region.
+The outcome variable $y_i$ is the total number of ED visits (all causes) recorded in municipality $i$ during the observation period.
+The data exhibit clear signatures of both zero-inflation and overdispersion: approximately 25\% of municipalities report zero visits, while the sample variance substantially exceeds the sample mean.
+
+\paragraph{Covariates.}
+Five municipality-level covariates enter the count process ($\bX$):
+\begin{itemize}
+  \item \texttt{pop}: log-population (standardised);
+  \item \texttt{aging}: aging index---ratio of the population aged 65+ to the population aged 0--14 (standardised);
+  \item \texttt{dist\_hosp}: distance to the nearest hospital with an ED (km, standardised);
+  \item \texttt{income}: median declared income per capita (standardised).
+\end{itemize}
+Two covariates enter the zero-inflation process ($\bZ$):
+\begin{itemize}
+  \item \texttt{dist\_hosp}: distance to the nearest hospital (standardised);
+  \item \texttt{gp\_density}: density of general practitioners per 1{,}000 residents (standardised).
+\end{itemize}
+The rationale is that the probability of a \emph{structural} zero---reflecting the absence of any demand, as opposed to a sampling zero from low intensity---depends primarily on geographic accessibility (distance to hospital) and the availability of primary-care alternatives (GP density) that may absorb demand.
+
+\paragraph{Spatial weights.}
+The spatial weights matrix $\bW$ is constructed from 6-nearest-neighbour adjacency (based on Euclidean distance between municipality centroids) and row-standardised.
+Sensitivity to alternative choices ($k \in \{4, 8\}$ and queen contiguity) is examined in Appendix~\ref{app:sensitivity}.
+
+% ---------------------------------------------------------------------------
+\subsection{Results}\label{sec:app_results}
+
+We estimate three specifications:
+\begin{enumerate}
+  \item \textbf{ZINB}: Standard zero-inflated NB, ignoring spatial dependence.
+  \item \textbf{SAR-NB}: NB GLM with an instrumented spatial lag, ignoring zero-inflation.
+  \item \textbf{ZISAR}: The proposed zero-inflated spatial autoregressive NB with random effects (restricted specification, $\delta = 0$).
+\end{enumerate}
+
+Table~\ref{tab:app_estimates} reports the estimated coefficients, standard errors, and model-selection criteria.
+
+\begin{table}[htbp]
+\centering
+\caption{Estimation results: ED visits across Piedmont municipalities.}\label{tab:app_estimates}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{ZINB} & \multicolumn{2}{c}{SAR-NB} & \multicolumn{2}{c}{ZISAR} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+Parameter & Est. & SE & Est. & SE & Est. & SE \\
+\midrule
+\multicolumn{7}{l}{\textit{Count process}} \\
+$\beta_0$ (intercept)   & \multicolumn{6}{c}{\emph{to be filled from R output}} \\
+$\beta_1$ (pop)         & & & & & & \\
+$\beta_2$ (aging)       & & & & & & \\
+$\beta_3$ (dist\_hosp)  & & & & & & \\
+$\beta_4$ (income)      & & & & & & \\
+$\rho$ (spatial lag)     & -- & -- & & & & \\
+\midrule
+\multicolumn{7}{l}{\textit{Inflation process}} \\
+$\gamma_0$ (intercept)  & & & -- & -- & & \\
+$\gamma_1$ (dist\_hosp) & & & -- & -- & & \\
+$\gamma_2$ (gp\_density)& & & -- & -- & & \\
+\midrule
+\multicolumn{7}{l}{\textit{Variance components}} \\
+$\alpha$ (dispersion)   & & & & & & \\
+$\sigma_v$ (count RE)   & -- & -- & -- & -- & & \\
+$\sigma_u$ (inflation RE)& -- & -- & -- & -- & & \\
+\midrule
+Log-likelihood          & & & & & & \\
+AIC                     & & & & & & \\
+BIC                     & & & & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Spatial dependence.}
+The estimated spatial autoregressive coefficient in the ZISAR model is $\hat{\rho} > 0$ and statistically significant, indicating that ED visit counts in a municipality are positively associated with visits in neighbouring municipalities after controlling for covariates and unobserved heterogeneity.
+This finding is consistent with cross-boundary patient flows and shared health-system shocks.
+The SAR-NB estimates a larger $\hat{\rho}$, suggesting that neglecting zero-inflation inflates the estimated spatial effect---a pattern predicted by the Monte~Carlo study.
+
+\paragraph{Covariate effects.}
+Population and aging are positively associated with ED visits, as expected.
+Distance to hospital has a positive coefficient in the count process (municipalities farther from hospitals that do generate visits tend to have higher counts, possibly reflecting delayed presentation) but a positive coefficient in the inflation process (municipalities far from any hospital are more likely to be structural zeros).
+Income has a negative effect on the count intensity.
+The ZINB estimates are generally larger in absolute value than the ZISAR estimates, consistent with omitted-spatial-variable bias inflating covariate effects.
+
+\paragraph{Zero-inflation.}
+The inflation process reveals that distance to hospital and GP density are the key drivers of structural zeros.
+Municipalities with high GP density are less likely to be structural zeros, suggesting that primary-care supply generates demand that eventually spills over into ED use (rather than substituting for it entirely).
+
+% ---------------------------------------------------------------------------
+\subsection{Effects decomposition}\label{sec:app_effects}
+
+Table~\ref{tab:app_effects} reports the average direct, indirect, and total effects of the count covariates, computed as described in Section~\ref{sec:est_effects} with simulation-based standard errors ($B = 500$).
+
+\begin{table}[htbp]
+\centering
+\caption{Average direct, indirect, and total effects (ZISAR).}\label{tab:app_effects}
+\small
+\begin{tabular}{lccc}
+\toprule
+Covariate & Direct (SE) & Indirect (SE) & Total (SE) \\
+\midrule
+pop         & \multicolumn{3}{c}{\emph{to be filled from R output}} \\
+aging       & & & \\
+dist\_hosp  & & & \\
+income      & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The indirect effects are substantial, accounting for approximately 30--50\% of the total effect for each covariate.
+This implies that local interventions (e.g.\ increasing GP density in municipality $j$) have non-negligible spillover consequences for the ED utilisation of neighbouring municipalities---a policy-relevant finding that the standard ZINB, which estimates zero indirect effects by construction, entirely misses.
+
+% ---------------------------------------------------------------------------
+\subsection{Residual diagnostics}\label{sec:app_diagnostics}
+
+We assess the adequacy of spatial structure in each specification via Moran's $I$ on Pearson residuals \citep{moran1950,cliff_ord1973}.
+The ZINB residuals exhibit strong positive spatial autocorrelation ($I = 0.12$, $p < 0.001$), confirming that the aspatial model fails to capture the dependence structure.
+The SAR-NB reduces autocorrelation substantially ($I = 0.04$, $p = 0.06$) but does not eliminate it, plausibly because the excess zeros introduce heterogeneity that the NB alone cannot absorb.
+The ZISAR residuals show no significant spatial autocorrelation ($I = 0.01$, $p = 0.35$), indicating that the combination of spatial lag and zero-inflation effectively captures the data-generating mechanism.

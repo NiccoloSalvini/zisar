@@ -1,0 +1,18 @@
+# Compiled TMB objects
+notebooks/*.o
+notebooks/*.so
+
+# LaTeX auxiliary files
+tex/*.aux
+tex/*.bbl
+tex/*.blg
+tex/*.log
+tex/*.out
+tex/*.toc
+tex/*.synctex.gz
+
+# R data (large binary)
+data/*.rds
+
+# macOS
+.DS_Store

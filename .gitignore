@@ -14,5 +14,8 @@ tex/*.synctex.gz
 # R data (large binary)
 data/*.rds
 
+# Local tool state
+.omc/
+
 # macOS
 .DS_Store

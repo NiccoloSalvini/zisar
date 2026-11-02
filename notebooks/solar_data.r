@@ -10,8 +10,10 @@
 #  Outcome:  number of domestic PV installations accredited under the
 #            Feed-in Tariff (FiT) scheme, April 2010 - March 2019
 #            (Ofgem Central FiT Register, installation report 30 June 2026)
-#  Covariates: 2011 Census (baseline, pre-scheme) and English Indices of
-#            Deprivation 2019
+#  Covariates: 2011 Census (baseline, pre-scheme), English Indices of
+#            Deprivation 2019, VOA Council Tax stock of properties 2015
+#            (band and build period) and DESNZ domestic electricity
+#            consumption 2010 (before the scheme)
 #  Weights:  queen contiguity of the generalised (20 m) LSOA boundaries
 #
 #  Requires the duckdb command-line client to read the Ofgem workbooks
@@ -84,16 +86,22 @@ fit <- read_csv(fit_lsoa_csv, show_col_types = FALSE)
 # -----------------------------------------------------------------------------
 # 2. 2011 Census tables (Nomis API), all 2011 LSOAs (TYPE298), Total rows only
 # -----------------------------------------------------------------------------
-nomis_get <- function(id, cells = NULL) {
+nomis_get <- function(id, cells = NULL, extra = "") {
   dest <- file.path(raw_dir, paste0("census2011_", id, ".csv"))
   if (!file.exists(dest)) {
     base <- sprintf(paste0("https://www.nomisweb.co.uk/api/v01/dataset/%s.data.csv?",
                            "geography=TYPE298&rural_urban=0&measures=20100",
-                           "&select=geography_code,cell,cell_name,obs_value"), id)
+                           "&select=geography_code,cell,cell_name,obs_value%s"), id, extra)
     if (!is.null(cells)) base <- paste0(base, "&cell=", paste(cells, collapse = ","))
     pages <- list(); off <- 0
     repeat {
-      pg <- read_csv(paste0(base, "&recordoffset=", off), show_col_types = FALSE)
+      for (attempt in 1:5) {                 # the API drops connections now and then
+        pg <- tryCatch(read_csv(paste0(base, "&recordoffset=", off), show_col_types = FALSE),
+                       error = function(e) NULL)
+        if (!is.null(pg)) break
+        Sys.sleep(10)
+      }
+      stopifnot(!is.null(pg))
       if (nrow(pg) == 0) break
       pages[[length(pages) + 1]] <- pg
       off <- off + nrow(pg)
@@ -115,6 +123,7 @@ wide <- function(d, labels) {
 
 ks401 <- wide(nomis_get("NM_618_1"), c(
   "Household spaces with at least one usual resident" = "households",
+  "Household spaces with no usual residents" = "empty_spaces",
   "Whole house or bungalow: Detached" = "detached",
   "Whole house or bungalow: Semi-detached" = "semi",
   "Whole house or bungalow: Terraced (including end-terrace)" = "terraced",
@@ -140,6 +149,59 @@ qs415 <- wide(nomis_get("NM_547_1"), c(
   "Gas central heating" = "gas_heat"))
 qs102 <- wide(nomis_get("NM_143_1"), c(
   "Area Hectares" = "area_ha"))
+ks611 <- wide(nomis_get("NM_628_1", cells = c(0, 1, 4), extra = "&c_sex=0"), c(
+  "All categories: NS-SeC" = "pop_nssec",
+  "1. Higher managerial, administrative and professional occupations" = "nssec12",
+  "2. Lower managerial, administrative and professional occupations" = "nssec12"))
+ks105 <- wide(nomis_get("NM_605_1", cells = c(0, 5, 8, 10, 12)), c(
+  "All categories: Household composition" = "hh_comp",
+  "One family only: Married or same-sex civil partnership couple: Dependent children" = "hh_children",
+  "One family only: Cohabiting couple: Dependent children" = "hh_children",
+  "One family only: Lone parent: Dependent children" = "hh_children",
+  "Other household types: With dependent children" = "hh_children"))
+ks101 <- wide(nomis_get("NM_144_1", cells = 4), c(
+  "Lives in a communal establishment" = "communal"))
+
+# -----------------------------------------------------------------------------
+# 2b. VOA Council Tax stock of properties, 2015 (2011 LSOAs): Council Tax band
+#     (1991 values) and build period. Counts are rounded to 10; "-" marks
+#     suppressed small counts, read as 0.
+# -----------------------------------------------------------------------------
+dir.create(file.path(raw_dir, "voa"), showWarnings = FALSE)
+voa_num <- function(x) { x <- gsub(",", "", x); x[x %in% c("-", "N/A", "..")] <- "0"; as.numeric(x) }
+voa_band <- read_csv(download_once(
+  "https://assets.publishing.service.gov.uk/media/5a801553ed915d74e622c5d6/Table_CTSOP1.1_2015.csv",
+  file.path(raw_dir, "voa", "ctsop1_1_2015.csv")), col_types = cols(.default = "c")) |>
+  filter(GEOGRAPHY == "LSOA", startsWith(ECODE, "E01")) |>
+  transmute(lsoa11 = ECODE,
+            band_eh = voa_num(BAND_E) + voa_num(BAND_F) + voa_num(BAND_G) + voa_num(BAND_H),
+            voa_props = voa_num(ALL_PROPERTIES))
+voa_age <- read_csv(download_once(
+  "https://assets.publishing.service.gov.uk/media/5a81b5c740f0b62305b906aa/Table_CTSOP4.1_2015.csv",
+  file.path(raw_dir, "voa", "ctsop4_1_2015.csv")), col_types = cols(.default = "c")) |>
+  filter(GEOGRAPHY == "LSOA", BAND == "All", startsWith(ECODE, "E01")) |>
+  transmute(lsoa11 = ECODE, pre1919 = voa_num(BP_PRE_1900) + voa_num(BP_1900_1918),
+            voa_props_bp = voa_num(ALL_PROPERTIES))
+
+# -----------------------------------------------------------------------------
+# 2c. DESNZ domestic electricity consumption by LSOA, 2010 (before the scheme;
+#     later years net out self-consumption of the panels), on 2011 LSOAs
+# -----------------------------------------------------------------------------
+dir.create(file.path(raw_dir, "desnz"), showWarnings = FALSE)
+elec_xlsx <- download_once(
+  "https://assets.publishing.service.gov.uk/media/69427b7bd8156a816c419351/LSOA_domestic_elec_2010-2024.xlsx",
+  file.path(raw_dir, "desnz", "lsoa_dom_elec_2010_2024.xlsx"))
+elec_csv <- file.path(raw_dir, "desnz", "lsoa_dom_elec_2010.csv")
+if (!file.exists(elec_csv)) {
+  sql <- sprintf(paste("LOAD excel; COPY (SELECT * FROM read_xlsx('%s', sheet='2010',",
+                       "header=true, range='A5:J60000', all_varchar=true)) TO '%s' (HEADER);"),
+                 elec_xlsx, elec_csv)
+  stopifnot(system2("duckdb", c("-c", shQuote(sql))) == 0)
+}
+elec11 <- read_csv(elec_csv, col_types = cols(.default = "c")) |>
+  select(lsoa11 = 5, meters = 7, kwh = 8) |>
+  filter(!is.na(lsoa11), startsWith(lsoa11, "E01")) |>
+  transmute(lsoa11, elec_kwh = as.numeric(kwh) / as.numeric(meters))
 
 # -----------------------------------------------------------------------------
 # 3. English Indices of Deprivation 2019 (2011 LSOAs)
@@ -261,18 +323,28 @@ l11 <- iod |>
   left_join(ks102, by = "lsoa11") |>
   left_join(qs415, by = "lsoa11") |>
   left_join(qs102, by = "lsoa11") |>
+  left_join(ks611, by = "lsoa11") |>
+  left_join(ks105, by = "lsoa11") |>
+  left_join(ks101, by = "lsoa11") |>
+  left_join(voa_band, by = "lsoa11") |>
+  left_join(voa_age, by = "lsoa11") |>
+  left_join(elec11, by = "lsoa11") |>
   left_join(pwc_df, by = "lsoa11") |>
   left_join(unit_of11, by = c("lsoa11" = "LSOA11CD"))
-stopifnot(nrow(l11) == 32844, !anyNA(l11$unit), !anyNA(l11$households))
+stopifnot(nrow(l11) == 32844, !anyNA(l11$unit), !anyNA(l11$households),
+          !anyNA(select(l11, nssec12, hh_children, communal, band_eh, pre1919, elec_kwh)))
 
 solar <- l11 |>
   group_by(unit) |>
   summarise(n_lsoa11 = n(), lad19cd = first(lad19cd), lad19nm = first(lad19nm),
             east = weighted.mean(east, pop), north = weighted.mean(north, pop),
             income_dep = sum(income_dep * iod_pop) / sum(iod_pop),
+            elec_kwh = weighted.mean(elec_kwh, households),
             across(c(households, detached, semi, terraced, flat, caravan,
                      hh_tenure, owned, shared_own, social_rent, private_rent,
-                     pop16, level4, pop, age65, hh_heat, gas_heat, area_ha), sum),
+                     pop16, level4, pop, age65, hh_heat, gas_heat, area_ha,
+                     empty_spaces, pop_nssec, nssec12, hh_comp, hh_children,
+                     communal, band_eh, voa_props, pre1919, voa_props_bp), sum),
             .groups = "drop") |>
   left_join(select(units, unit, n01), by = "unit") |>
   left_join(fit_u, by = "unit") |>
@@ -288,6 +360,12 @@ solar <- l11 |>
          sh_age65     = age65 / pop,
          sh_offgas    = 1 - gas_heat / hh_heat,
          density      = pop / (area_ha / 100),   # residents per km^2
+         sh_nssec12   = nssec12 / pop_nssec,
+         sh_children  = hh_children / hh_comp,
+         sh_communal  = communal / pop,
+         sh_empty     = empty_spaces / (households + empty_spaces),
+         sh_band_eh   = band_eh / voa_props,
+         sh_pre1919   = pre1919 / voa_props_bp,
          pv_rate      = 100 * pv_dom / households) |>
   arrange(unit)
 

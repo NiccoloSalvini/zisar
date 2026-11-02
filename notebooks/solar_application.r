@@ -5,9 +5,10 @@
 #        the tariff reform of 8 February 2016 and before the scheme closed to
 #        new entrants (31 March 2019), in LSOA i (n = 32,322 harmonised
 #        2001/2011 LSOAs, see solar_data.r)
-#  X   : count-process covariates (2011 Census, IoD 2019, location), including
-#        the housing-form covariates of Z
-#  Z   : structural-zero covariates (housing form and urban density)
+#  X   : count-process covariates (2011 Census, IoD 2019, VOA 2015, DESNZ
+#        2010, location), including the housing covariates of Z
+#  Z   : structural-zero covariates (housing form and age, density, tenure,
+#        communal and vacant dwellings)
 #  W   : queen contiguity, row-standardised (k-NN in the sensitivity check)
 #  The cumulative 2010-2019 count is used as a robustness check.
 #
@@ -33,14 +34,20 @@ cov_x <- with(solar, data.frame(
   detached   = std(sh_detached),        # detached-house share
   social     = std(sh_social),          # social-rented share (landlord programmes)
   income_dep = std(income_dep),         # IoD income deprivation rate
-  degree     = std(sh_level4),          # residents 16+ with level-4 qualification
+  managerial = std(sh_nssec12),         # NS-SEC 1-2: managerial and professional
   age65      = std(sh_age65),           # share aged 65+
+  children   = std(sh_children),        # households with dependent children
   offgas     = std(sh_offgas),          # households without gas central heating
+  band_eh    = std(sh_band_eh),         # Council Tax bands E-H (VOA 2015)
+  elec       = std(log(elec_kwh)),      # log domestic kWh per meter, 2010
   north      = std(north / 1000)))      # northing (km): solar resource gradient
 cov_z <- with(solar, data.frame(
   flat       = std(sh_flat),            # share of household spaces in flats
   density    = std(log(density)),       # log residents per km^2
-  private    = std(sh_private)))        # private-rented share
+  private    = std(sh_private),         # private-rented share
+  communal   = std(sh_communal),        # residents in communal establishments
+  empty      = std(sh_empty),           # household spaces with no usual residents
+  pre1919    = std(sh_pre1919)))        # dwellings built before 1919 (VOA 2015)
 # Housing form also shifts the intensity among eligible LSOAs: the Z covariates
 # enter X too (same names, so zisar_effects adds the inflation channel)
 X <- cbind(intercept = 1, as.matrix(cov_x), as.matrix(cov_z))
@@ -96,6 +103,21 @@ if (file.exists(fits_file)) {
     f
   }, mc.cores = length(specs), mc.preschedule = FALSE)
   stopifnot(all(sapply(fits, inherits, "zisar")))
+  # A fit of the post-reform outcome that stops with a false-convergence flag
+  # is restarted from its stopping point with kappa near the upper bound,
+  # where all the converged fits of this application end
+  for (nm in setdiff(names(fits), "cum")) if (fits[[nm]]$convergence != 0) {
+    f0 <- fits[[nm]]
+    t0 <- Sys.time()
+    f <- zisar_fit(specs[[nm]]$y, X, Z, specs[[nm]]$W, fixed = specs[[nm]]$fixed,
+                   init = list(beta = f0$params$beta, gamma = f0$params$gamma,
+                               rho_raw = atanh(f0$params$rho), log_kappa = log(499),
+                               log_sigma = log(f0$params$sigma), eta = f0$eta_hat))
+    f$elapsed <- f0$elapsed + as.numeric(difftime(Sys.time(), t0, units = "secs"))
+    f$restarted <- TRUE
+    f$tmb_obj <- NULL
+    fits[[nm]] <- f
+  }
   saveRDS(fits, fits_file)
 }
 fit_zisar   <- fits$zisar
@@ -238,8 +260,8 @@ cat("W queen: mean neighbours", round(mean(card(lw$neighbours)), 2),
     " islands relinked:", length(Ws$islands), "\n\n")
 cat("--- Descriptives (raw covariates) ---\n")
 print(round(t(sapply(solar[, c("pv_dom_late", "pv_dom", "households", "sh_detached",
-  "sh_social", "income_dep", "sh_level4", "sh_age65", "sh_offgas", "north",
-  "sh_flat", "density", "sh_private")], function(v) c(mean = mean(v), sd = sd(v),
+  "sh_social", "income_dep", "sh_nssec12", "sh_age65", "sh_children", "sh_offgas", "sh_band_eh", "elec_kwh", "north",
+  "sh_flat", "density", "sh_private", "sh_communal", "sh_empty", "sh_pre1919")], function(v) c(mean = mean(v), sd = sd(v),
   min = min(v), median = median(v), max = max(v)))), 3))
 cat("\n--- Correlations of standardised covariates ---\n")
 print(round(cor(cbind(cov_x, cov_z)), 2))

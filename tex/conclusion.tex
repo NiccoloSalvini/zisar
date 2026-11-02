@@ -13,9 +13,9 @@ The Monte~Carlo study confirmed that ignoring either spatial dependence or zero-
 ZISAR recovers the data-generating parameters with low bias and an RMSE that decreases with $n$.
 A second experiment showed that residual-based Moran tests can miss spatial dependence that the likelihood detects.
 
-The application to domestic solar PV adoption in England after the 2016 reform of the Feed-in Tariff took the estimator to $n = 32{,}322$ small areas, where a fit takes about three minutes.
+The application to domestic solar PV adoption in England after the 2016 reform of the Feed-in Tariff took the estimator to $n = 32{,}322$ small areas, where a fit takes a few minutes on a laptop.
 ZISAR found strong spatial dependence in the latent propensity to adopt ($\hat\rho = 0.63$), attributed about one tenth of the 10{,}442 zeros to a structural regime confined to flat-dominated urban cores---a classification that agrees with the areas' adoption history before the reform, which the model does not use---and dominated every competitor in AIC and BIC.
-It also showed what is lost by ignoring space: the aspatial models credit social renting and the elderly population with effects that disappear once the spatial clustering of adoption is modelled.
+It also showed what is lost by ignoring space: the aspatial models credit social renting and households with children with effects that disappear or reverse once the spatial clustering of adoption is modelled, while a richer set of socio-economic and structural covariates, which improves the aspatial fits, adds little to ZISAR and leaves $\hat\rho$ unchanged.
 The application also brought out a practical point for zero-inflated models of administrative counts: a mismatch between the geography of the register and that of the covariates creates artificial zeros, which must be removed before the zero process can be interpreted.
 
 \paragraph{Limitations.}

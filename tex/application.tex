@@ -32,18 +32,31 @@ Most zeros, however, are not of this kind: 63\% of the units with no post-reform
 
 \paragraph{Covariates.}
 Covariates are measured at baseline, before or at the start of the window, and are standardised.
-The count process includes
+The count process includes three groups of covariates.
+The socio-economic group comprises
+the shares of social-rented households (housing associations and councils installed PV on large numbers of their properties under ``rent-a-roof'' programmes), of residents aged 16--74 in managerial and professional occupations (NS-SEC classes 1--2), of residents aged 65 and over and of households with dependent children, all from the 2011 Census, and the income-deprivation rate of the English Indices of Deprivation 2019.
+The housing and energy group comprises
 the number of households (log);
-the shares of detached houses, of social-rented households (housing associations and councils installed PV on large numbers of their properties under ``rent-a-roof'' programmes), of residents aged 16 and over with a degree-level qualification, of residents aged 65 and over, and of households without gas central heating (who heat with electricity, oil or solid fuel and face higher energy costs), all from the 2011 Census;
-the income-deprivation rate of the English Indices of Deprivation 2019;
-and the northing of the population-weighted centroid, which captures the decline of solar irradiation with latitude.
-The inflation process includes the share of household spaces in flats, the log of population density and the share of private-rented households, whose landlords rarely invest in improvements whose returns accrue to tenants.
-These three covariates also enter the count process, since housing form shifts the number of eligible roofs even where installation is feasible; their effects on $\E[\by]$ therefore combine the count channel \eqref{eq:effects_count} and the inflation channel \eqref{eq:effects_zero_channel}.
+the share of detached houses;
+the share of dwellings in Council Tax bands E--H, a measure of property value from the Valuation Office Agency (VOA) stock of properties in 2015;
+the share of households without gas central heating, who heat with electricity, oil or solid fuel and face higher energy costs;
+and the mean domestic electricity consumption per meter in 2010 (log), from the Department for Energy Security and Net Zero, measured before the scheme because later consumption is net of the panels' self-consumption.
+The location group is the northing of the population-weighted centroid, which captures the decline of solar irradiation with latitude.
+The managerial share replaces the share of graduates, with which it has a correlation of 0.91: with both, their coefficients take opposite signs, and either alone gives almost the same fit (ZINB AIC 112{,}103 with the managerial share, 112{,}115 with the graduate share).
+
+The inflation process includes the variables that can make domestic installation infeasible or irrelevant:
+the share of household spaces in flats;
+the log of population density;
+the share of private-rented households, whose landlords rarely invest in improvements whose returns accrue to tenants;
+the share of residents in communal establishments, such as student halls and care homes;
+the share of household spaces with no usual resident, that is vacant dwellings and second homes;
+and the share of dwellings built before 1919 (VOA), which proxies for conservation areas and listed buildings, where planning rules restrict roof-mounted panels.
+These six covariates also enter the count process, since the housing stock shifts the number of eligible roofs even where installation is feasible; their effects on $\E[\by]$ therefore combine the count channel \eqref{eq:effects_count} and the inflation channel \eqref{eq:effects_zero_channel}.
 Table~\ref{tab:app_desc} reports descriptive statistics.
 
 \begin{table}[htbp]
 \centering
-\caption{Descriptive statistics of the outcome and covariates ($n = 32{,}322$ LSOAs). Shares and rates in per cent. Sources: Ofgem Central FiT Register; 2011 Census; English Indices of Deprivation 2019.}\label{tab:app_desc}
+\caption{Descriptive statistics of the outcome and covariates ($n = 32{,}322$ LSOAs). Shares and rates in per cent; VOA counts are rounded to the nearest ten, so that VOA shares can slightly exceed 100. Sources: Ofgem Central FiT Register; 2011 Census; English Indices of Deprivation 2019; VOA Council Tax stock of properties 2015; DESNZ sub-national electricity consumption 2010.}\label{tab:app_desc}
 \small
 \begin{tabular}{lrrrrr}
 \toprule
@@ -53,20 +66,27 @@ Table~\ref{tab:app_desc} reports descriptive statistics.
 \quad 8 Feb 2016--Mar 2019 (main) & 1.9 & 3.4 & 0 & 1 & 124 \\
 \quad Apr 2010--Mar 2019 (robustness) & 21.0 & 21.4 & 0 & 15 & 309 \\
 \midrule
-\multicolumn{6}{l}{\textit{Count process}} \\
-\quad Households & 682.6 & 171.0 & 304 & 650 & 6304 \\
-\quad Detached houses & 22.8 & 21.8 & 0.0 & 13.8 & 97.2 \\
+\multicolumn{6}{l}{\textit{Count process: socio-economic}} \\
 \quad Social-rented households & 17.4 & 17.2 & 0.0 & 11.2 & 92.5 \\
 \quad Income-deprivation rate & 12.9 & 9.4 & 0.3 & 10.0 & 60.9 \\
-\quad Degree-level qualification & 26.9 & 12.5 & 3.3 & 25.0 & 82.2 \\
+\quad Managerial and professional (NS-SEC 1--2) & 31.2 & 12.2 & 2.7 & 30.4 & 78.5 \\
 \quad Aged 65 and over & 16.8 & 7.1 & 0.4 & 16.2 & 60.7 \\
+\quad Households with dependent children & 29.7 & 7.9 & 2.4 & 29.2 & 72.9 \\
+\multicolumn{6}{l}{\textit{Count process: housing, energy and location}} \\
+\quad Households & 682.6 & 171.0 & 304 & 650 & 6304 \\
+\quad Detached houses & 22.8 & 21.8 & 0.0 & 13.8 & 97.2 \\
+\quad Council Tax bands E--H & 18.8 & 23.0 & 0.0 & 8.8 & 102.0 \\
 \quad Without gas central heating & 20.3 & 17.9 & 1.6 & 14.6 & 98.7 \\
+\quad Electricity per meter, 2010 (kWh) & 4178 & 899 & 1462 & 3982 & 13360 \\
 \quad Northing (km) & 276.7 & 127.4 & 10.6 & 260.9 & 654.4 \\
 \midrule
 \multicolumn{6}{l}{\textit{Inflation and count processes}} \\
 \quad Flats (share of household spaces) & 20.0 & 22.2 & 0.0 & 11.6 & 99.7 \\
 \quad Population density (per km$^2$) & 4225 & 4154 & 3 & 3430 & 68470 \\
 \quad Private-rented households & 16.0 & 11.3 & 1.3 & 12.2 & 87.9 \\
+\quad Residents in communal establishments & 1.5 & 4.6 & 0.0 & 0.0 & 86.7 \\
+\quad Household spaces with no usual resident & 3.9 & 3.5 & 0.0 & 3.1 & 71.4 \\
+\quad Dwellings built before 1919 & 20.8 & 24.3 & 0.0 & 11.3 & 101.4 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -94,28 +114,37 @@ Table~\ref{tab:app_estimates} reports the estimates of the four main specificati
  & NB & ZINB & SAR-NB & ZISAR \\
 \midrule
 \multicolumn{5}{l}{\textit{Count process} ($\bbeta$)} \\
-Intercept         & $0.462$ (0.007) & $0.506$ (0.008) & $0.225$ (0.021) & $0.056$ (0.005) \\
-Households (log)  & $0.228$ (0.007) & $0.223$ (0.007) & $0.207$ (0.007) & $0.150$ (0.006) \\
-Detached          & $0.177$ (0.010) & $0.198$ (0.010) & $0.141$ (0.011) & $0.093$ (0.008) \\
-Social rented     & $0.179$ (0.015) & $0.194$ (0.015) & $0.138$ (0.016) & $-0.020$ (0.011) \\
-Income deprivation & $0.020$ (0.015) & $0.008$ (0.015) & $0.043$ (0.015) & $0.037$ (0.010) \\
-Degree            & $-0.015$ (0.011) & $-0.018$ (0.011) & $0.011$ (0.011) & $0.032$ (0.007) \\
-Aged 65+          & $0.074$ (0.008) & $0.058$ (0.008) & $0.052$ (0.008) & $-0.006$ (0.006) \\
-Off gas           & $0.065$ (0.008) & $0.082$ (0.008) & $0.020$ (0.009) & $0.043$ (0.006) \\
-Northing          & $-0.059$ (0.007) & $-0.051$ (0.007) & $-0.044$ (0.007) & $-0.025$ (0.004) \\
-Flats             & $-0.413$ (0.014) & $-0.292$ (0.016) & $-0.351$ (0.015) & $-0.097$ (0.012) \\
-Density (log)     & $-0.193$ (0.010) & $-0.180$ (0.011) & $-0.155$ (0.011) & $-0.088$ (0.008) \\
-Private rented    & $0.041$ (0.012) & $0.006$ (0.013) & $0.015$ (0.013) & $-0.048$ (0.009) \\
-$\rho$            & --- & --- & [$0.117$ (0.010)] & $0.631$ (0.011) \\
+Intercept          & $0.458$ (0.007) & $0.506$ (0.008) & $0.128$ (0.021) & $0.058$ (0.005) \\
+Social rented      & $0.155$ (0.016) & $0.164$ (0.016) & $0.104$ (0.016) & $-0.037$ (0.012) \\
+Income deprivation & $0.007$ (0.016) & $-0.018$ (0.017) & $0.051$ (0.017) & $0.008$ (0.012) \\
+Managerial (NS-SEC 1--2) & $-0.055$ (0.015) & $-0.071$ (0.015) & $-0.028$ (0.015) & $-0.026$ (0.010) \\
+Aged 65+           & $0.022$ (0.012) & $0.006$ (0.012) & $0.007$ (0.012) & $-0.020$ (0.009) \\
+Children           & $-0.043$ (0.012) & $-0.036$ (0.012) & $-0.037$ (0.012) & $0.000$ (0.009) \\
+Households (log)   & $0.222$ (0.007) & $0.217$ (0.007) & $0.200$ (0.007) & $0.150$ (0.006) \\
+Detached           & $0.184$ (0.011) & $0.208$ (0.011) & $0.110$ (0.012) & $0.095$ (0.008) \\
+Bands E--H         & $0.008$ (0.013) & $0.021$ (0.013) & $0.045$ (0.013) & $0.035$ (0.009) \\
+Off gas            & $0.065$ (0.010) & $0.101$ (0.011) & $-0.004$ (0.011) & $0.057$ (0.008) \\
+Electricity 2010 (log) & $-0.011$ (0.013) & $-0.043$ (0.014) & $0.028$ (0.013) & $-0.024$ (0.010) \\
+Northing           & $-0.065$ (0.007) & $-0.056$ (0.007) & $-0.030$ (0.008) & $-0.020$ (0.005) \\
+Flats              & $-0.416$ (0.015) & $-0.285$ (0.017) & $-0.332$ (0.016) & $-0.073$ (0.012) \\
+Density (log)      & $-0.189$ (0.011) & $-0.180$ (0.011) & $-0.128$ (0.012) & $-0.092$ (0.009) \\
+Private rented     & $0.024$ (0.014) & $-0.010$ (0.015) & $0.018$ (0.014) & $-0.043$ (0.011) \\
+Communal           & $0.017$ (0.007) & $0.020$ (0.008) & $0.021$ (0.007) & $0.012$ (0.006) \\
+No usual resident  & $0.052$ (0.007) & $0.049$ (0.008) & $0.029$ (0.008) & $0.012$ (0.006) \\
+Built before 1919  & $-0.061$ (0.010) & $-0.071$ (0.010) & $-0.067$ (0.010) & $-0.031$ (0.007) \\
+$\rho$             & --- & --- & [$0.162$ (0.010)] & $0.628$ (0.010) \\
 \midrule
 \multicolumn{5}{l}{\textit{Inflation process} ($\bgamma$)} \\
-Intercept         & --- & $-5.402$ (0.369) & --- & $-6.394$ (0.562) \\
-Flats             & --- & $1.675$ (0.175) & --- & $1.993$ (0.218) \\
-Density (log)     & --- & $1.249$ (0.260) & --- & $0.868$ (0.246) \\
-Private rented    & --- & $-0.570$ (0.090) & --- & $-0.289$ (0.080) \\
+Intercept          & --- & $-5.365$ (0.300) & --- & $-6.169$ (0.377) \\
+Flats              & --- & $1.514$ (0.149) & --- & $1.806$ (0.152) \\
+Density (log)      & --- & $1.554$ (0.287) & --- & $1.121$ (0.284) \\
+Private rented     & --- & $-0.301$ (0.097) & --- & $-0.072$ (0.098) \\
+Communal           & --- & $0.080$ (0.046) & --- & $0.061$ (0.048) \\
+No usual resident  & --- & $0.042$ (0.089) & --- & $-0.032$ (0.094) \\
+Built before 1919  & --- & $-0.528$ (0.099) & --- & $-0.414$ (0.104) \\
 \midrule
-$\kappa$ (NB shape)      & $1.511$ & $1.575$ & $1.525$ & $500$ \\
-$\sigma$ (RE std.\ dev.) & --- & --- & --- & $0.554$ (0.008) \\
+$\kappa$ (NB shape)      & $1.528$ & $1.605$ & $1.552$ & $500$ \\
+$\sigma$ (RE std.\ dev.) & --- & --- & --- & $0.553$ (0.007) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -131,49 +160,53 @@ $\sigma$ (RE std.\ dev.) & --- & --- & --- & $0.554$ (0.008) \\
  & Log-lik. & $k$ & AIC & BIC & 0 & 1 & 2 & 3 & 4 & 5 \\
 \midrule
 Observed  &          &    &          &          & 10442 & 8748 & 5319 & 3057 & 1754 & 984 \\
-NB        & $-56296$ & 13 & $112618$ & $112727$ & 11295 & 7805 & 4821 & 2942 & 1818 & 1147 \\
-ZINB      & $-56120$ & 17 & $112273$ & $112416$ & 11420 & 7553 & 4834 & 2997 & 1861 & 1172 \\
-SAR-NB    & $-56224$ & 14 & $112476$ & $112593$ & 11297 & 7809 & 4818 & 2939 & 1817 & 1147 \\
-ZINB-RE   & $-54286$ & 18 & $108608$ & $108759$ & & & & & & \\
-SAR-NB-RE & $-53183$ & 15 & $106397$ & $106522$ & & & & & & \\
-ZISAR     & $-53082$ & 19 & $106201$ & $106360$ & 11083 & 8276 & 5072 & 2932 & 1717 & 1042 \\
+NB        & $-56225$ & 19 & $112488$ & $112648$ & 11289 & 7805 & 4824 & 2948 & 1823 & 1150 \\
+ZINB      & $-56026$ & 26 & $112103$ & $112321$ & 11426 & 7541 & 4835 & 3002 & 1866 & 1176 \\
+SAR-NB    & $-56093$ & 20 & $112225$ & $112393$ & 11297 & 7813 & 4818 & 2939 & 1817 & 1147 \\
+ZINB-RE   & $-54198$ & 27 & $108451$ & $108677$ & & & & & & \\
+SAR-NB-RE & $-53183$ & 21 & $106407$ & $106584$ & & & & & & \\
+ZISAR     & $-53060$ & 28 & $106176$ & $106411$ & 11084 & 8256 & 5078 & 2942 & 1724 & 1045 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Spatial dependence.}
-ZISAR estimates $\hat\rho = 0.631$ (SE 0.011): the latent propensity to adopt of an LSOA depends strongly on that of its neighbours, and the spatial multiplier $1/(1-\hat\rho) = 2.7$ almost triples the long-run effect of a uniform change in the covariates.
-The likelihood-ratio test of $\rho = 0$, against the ZINB-RE, gives a statistic of 2{,}409, and the Wald statistic on $\tilde\rho$ is 40.7.
-The spatial lag of the SAR-NB is also significant, but it improves the AIC over the NB by only 142 points, against 2{,}407 for the latent SAR over the ZINB-RE: an instrumented lag of observed counts captures little of the dependence.
+ZISAR estimates $\hat\rho = 0.628$ (SE 0.010): the latent propensity to adopt of an LSOA depends strongly on that of its neighbours, and the spatial multiplier $1/(1-\hat\rho) = 2.7$ almost triples the long-run effect of a uniform change in the covariates.
+The likelihood-ratio test of $\rho = 0$, against the ZINB-RE, gives a statistic of 2{,}277, and the Wald statistic on $\tilde\rho$ is 45.5.
+The spatial lag of the SAR-NB is also significant, but it improves the AIC over the NB by 263 points, against 2{,}275 for the latent SAR over the ZINB-RE: an instrumented lag of observed counts captures little of the dependence.
 
 \paragraph{Dispersion.}
-The aspatial models attribute all the extra-Poisson variation to the NB shape ($\hat\kappa\approx1.5$).
-Once the latent field is modelled, the shape estimate runs to the upper bound of the optimisation box ($\kappa = 500$), in ZISAR as in the ZINB-RE and the SAR-NB-RE, and the count distribution is effectively Poisson conditional on $\boldsymbol\eta$: the overdispersion is entirely accounted for by the log-normal heterogeneity, $\hat\sigma = 0.554$, filtered through the spatial multiplier.
-This is the trade-off between $\sigma^2$ and $\kappa^{-1}$ noted in the Monte~Carlo study, resolved here in favour of the Gaussian component; the large standard error of $\log\hat\kappa$ (1.08) shows that the likelihood is nearly flat in this direction.
+The aspatial models attribute all the extra-Poisson variation to the NB shape ($\hat\kappa\approx1.5$--$1.6$).
+Once the latent field is modelled, the shape estimate runs to the upper bound of the optimisation box ($\kappa = 500$), in ZISAR as in the ZINB-RE and the SAR-NB-RE, and the count distribution is effectively Poisson conditional on $\boldsymbol\eta$: the overdispersion is entirely accounted for by the log-normal heterogeneity, $\hat\sigma = 0.553$, filtered through the spatial multiplier.
+This is the trade-off between $\sigma^2$ and $\kappa^{-1}$ noted in the Monte~Carlo study, resolved here in favour of the Gaussian component; the large standard error of $\log\hat\kappa$ (1.03) shows that the likelihood is nearly flat in this direction.
 
 \paragraph{Structural zeros.}
 The inflation process is driven by housing form.
-The probability of a structural zero rises steeply with the share of flats ($\hat\gamma = 1.99$) and with density ($0.87$), and falls with the private-rented share once these are held fixed ($-0.29$): private renting is common in converted terraced houses, which have roofs, and depresses adoption through the count process instead ($\hat\beta = -0.048$), consistent with landlords' weak incentive to invest.
-The fitted probabilities are very skewed: the median $\hat\pi_i$ is 0.001, the 99th percentile 0.71, and 756 LSOAs have $\hat\pi_i > 0.5$: 689 of them are in London, mostly in the inner boroughs, and most of the others in dense seaside towns such as Brighton, Bournemouth and Portsmouth (Figure~\ref{fig:app_maps}).
-In total the model attributes about 1{,}060 zeros to the structural regime, against 10{,}442 observed zeros: nine zeros in ten are sampling zeros of areas where installation was feasible but no household adopted in the window.
+The probability of a structural zero rises steeply with the share of flats ($\hat\gamma = 1.81$) and with density ($1.12$), and falls with the share of dwellings built before 1919 ($-0.41$): once flats are held fixed, old housing means terraced houses with roofs of their own, and its negative association with adoption runs through the count process instead ($\hat\beta = -0.031$), consistent with the planning restrictions of conservation areas.
+Private renting, communal establishments and vacant dwellings have no significant role in the inflation process of ZISAR; private renting is significant only in the aspatial ZINB, where it lowers the probability of a structural zero.
+The fitted probabilities are very skewed: the median $\hat\pi_i$ is 0.002, the 99th percentile 0.74, and 768 LSOAs have $\hat\pi_i > 0.5$: 681 of them are in London, mostly in the inner boroughs, and about half of the others in Brighton, Bournemouth, Manchester, Birmingham and Portsmouth (Figure~\ref{fig:app_maps}).
+In total the model attributes about 1{,}110 zeros to the structural regime, against 10{,}442 observed zeros: nine zeros in ten are sampling zeros of areas where installation was feasible but no household adopted in the window.
 
 The posterior probability that an observed zero is structural, $P(s_i = 1\mid y_i=0) = \hat\pi_i/[\hat\pi_i + (1-\hat\pi_i)\,h(0;\hat\eta_i,\hat\kappa)]$, can be checked against information the model does not use, namely the installations made before the reform.
-It averages 0.47 for the 798 units that had no installation over the whole life of the scheme, 0.15 for the 3{,}045 units with one to four pre-reform installations and 0.03 for the 6{,}599 units with five or more, which certainly contain suitable roofs.
-As a classifier of the never-adopters among the post-reform zeros, the posterior probability has an area under the ROC curve of 0.85.
+It averages 0.47 for the 798 units that had no installation over the whole life of the scheme, 0.16 for the 3{,}045 units with one to four pre-reform installations and 0.03 for the 6{,}599 units with five or more, which certainly contain suitable roofs.
+As a classifier of the never-adopters among the post-reform zeros, the posterior probability has an area under the ROC curve of 0.83.
 
 \paragraph{Covariate effects.}
 The coefficients of ZISAR are smaller than those of the aspatial models because they act on the latent predictor before the multiplier; the effects of Table~\ref{tab:app_effects} are the comparable quantities.
-More informative are the changes of sign.
-The share of social-rented households has a large positive coefficient in the NB and the ZINB (0.18--0.19) but none in ZISAR ($-0.020$, SE 0.011): the large installation programmes of housing associations and councils were concentrated in a few towns, and the aspatial models read this spatial clustering as an effect of tenure.
-The share of residents aged 65 and over loses its positive association for the same reason, while the shares of graduates and of income-deprived residents acquire small positive partial effects once the spatial clustering of adoption and the housing stock are accounted for.
-The more households an area has, the more of its dwellings are detached houses and the more of its households heat without mains gas, the more installations it records; adoption declines from south to north, as does the solar resource; flats and density reduce the intensity of adoption even where installation is feasible.
+More informative are the changes of sign and significance.
+The share of social-rented households has a large positive coefficient in the NB and the ZINB (0.16) and a negative one in ZISAR ($-0.037$, SE 0.012): the large installation programmes of housing associations and councils were concentrated in a few towns, and the aspatial models read this spatial clustering as an effect of tenure.
+In the same way, the negative association with households with dependent children disappears, and that with the elderly share turns from weakly positive to negative.
+The other covariates acquire or keep effects with plausible signs once the spatial clustering of adoption and the housing stock are accounted for.
+Adoption is higher where there are more households, more detached houses and more dwellings in the higher Council Tax bands, and where more households heat without mains gas; it declines from south to north, as does the solar resource; flats, density, private renting and pre-1919 housing reduce its intensity even where installation is feasible.
+Holding property values and dwelling type fixed, the managerial share and the electricity consumed per meter before the scheme have small negative partial effects: adoption is associated with the housing stock rather than with occupation or past consumption.
 
 \paragraph{Model fit.}
 Both features of ZISAR are needed (Table~\ref{tab:app_fit}).
-Adding zero-inflation to the NB lowers the AIC by 345 points, adding random effects to the ZINB by a further 3{,}665, and making the field spatial by 2{,}407.
-Zero-inflation remains relevant when the spatial field is present: ZISAR improves on the SAR-NB-RE by 196 AIC points (the likelihood-ratio statistic is 204 on four restrictions, although the restriction $\pi_i = 0$ lies on the boundary of the parameter space and the $\chi^2_4$ reference is only indicative).
+Adding zero-inflation to the NB lowers the AIC by 385 points, adding random effects to the ZINB by a further 3{,}652, and making the field spatial by 2{,}275.
+Zero-inflation remains relevant when the spatial field is present: ZISAR improves on the SAR-NB-RE by 231 AIC points (the likelihood-ratio statistic is 245 on seven restrictions, although the restriction $\pi_i = 0$ lies on the boundary of the parameter space and the $\chi^2_7$ reference is only indicative).
 ZISAR has the lowest AIC and BIC of all specifications, and its expected frequencies are the closest to the observed ones for every count from 0 to 5 except 3.
-All models over-predict zeros, ZISAR the least (11{,}083 expected against 10{,}442 observed, against 11{,}295 for the NB and 11{,}420 for the ZINB).
+All models over-predict zeros, ZISAR the least (11{,}084 expected against 10{,}442 observed, against 11{,}289 for the NB and 11{,}426 for the ZINB).
+The socio-economic and structural covariates added to a first, smaller specification (with the share of graduates but without the managerial share, children, Council Tax bands, electricity, communal establishments, vacant and pre-1919 dwellings) lower the AIC of the ZINB by 170 points but that of ZISAR by only 25, and raise the BIC of ZISAR: most of what they explain in the aspatial models is already captured by the latent field, whose estimate is unchanged ($\hat\rho = 0.631$ in the smaller specification).
 
 \begin{figure}[htbp]
 \centering
@@ -185,7 +218,7 @@ All models over-predict zeros, ZISAR the least (11{,}083 expected against 10{,}4
 \subsection{Effects decomposition}\label{sec:app_effects}
 
 Table~\ref{tab:app_effects} reports the average direct, indirect and total effects on the expected number of installations of a one-standard-deviation increase in each covariate, computed as in Section~\ref{sec:est_effects} with simulation-based standard errors ($B = 500$).
-For flats, density and private renting, which enter both processes, the direct effect includes the inflation channel \eqref{eq:effects_zero_channel}, reported separately in the last column.
+For the six covariates that enter both processes, the direct effect includes the inflation channel \eqref{eq:effects_zero_channel}, reported separately in the last column.
 
 \begin{table}[htbp]
 \centering
@@ -195,49 +228,57 @@ For flats, density and private renting, which enter both processes, the direct e
 \toprule
  & Direct & Indirect & Total & of which inflation \\
 \midrule
-Households (log)   & $0.308$ (0.012)  & $0.448$ (0.027)  & $0.757$ (0.037)  & --- \\
-Detached           & $0.191$ (0.016)  & $0.278$ (0.025)  & $0.469$ (0.040)  & --- \\
-Social rented      & $-0.042$ (0.022) & $-0.061$ (0.033) & $-0.103$ (0.056) & --- \\
-Income deprivation & $0.076$ (0.022)  & $0.111$ (0.032)  & $0.187$ (0.054)  & --- \\
-Degree             & $0.067$ (0.015)  & $0.097$ (0.022)  & $0.164$ (0.037)  & --- \\
-Aged 65+           & $-0.012$ (0.013) & $-0.018$ (0.018) & $-0.030$ (0.031) & --- \\
-Off gas            & $0.088$ (0.012)  & $0.129$ (0.018)  & $0.217$ (0.030)  & --- \\
-Northing           & $-0.052$ (0.009) & $-0.076$ (0.013) & $-0.128$ (0.022) & --- \\
-Flats              & $-0.228$ (0.023) & $-0.290$ (0.035) & $-0.518$ (0.057) & $-0.028$ \\
-Density (log)      & $-0.194$ (0.017) & $-0.264$ (0.025) & $-0.457$ (0.041) & $-0.012$ \\
-Private rented     & $-0.094$ (0.018) & $-0.143$ (0.028) & $-0.237$ (0.045) & $0.004$ \\
+Social rented      & $-0.075$ (0.025) & $-0.108$ (0.036) & $-0.183$ (0.061) & --- \\
+Income deprivation & $0.016$ (0.025)  & $0.022$ (0.037)  & $0.038$ (0.062)  & --- \\
+Managerial         & $-0.054$ (0.021) & $-0.077$ (0.030) & $-0.130$ (0.051) & --- \\
+Aged 65+           & $-0.040$ (0.019) & $-0.058$ (0.027) & $-0.098$ (0.045) & --- \\
+Children           & $0.000$ (0.018)  & $0.000$ (0.025)  & $0.000$ (0.043)  & --- \\
+Households (log)   & $0.307$ (0.013)  & $0.441$ (0.026)  & $0.748$ (0.036)  & --- \\
+Detached           & $0.194$ (0.015)  & $0.279$ (0.024)  & $0.473$ (0.039)  & --- \\
+Bands E--H         & $0.072$ (0.019)  & $0.103$ (0.027)  & $0.174$ (0.046)  & --- \\
+Off gas            & $0.117$ (0.016)  & $0.168$ (0.023)  & $0.285$ (0.038)  & --- \\
+Electricity 2010   & $-0.049$ (0.022) & $-0.070$ (0.032) & $-0.118$ (0.054) & --- \\
+Northing           & $-0.040$ (0.010) & $-0.057$ (0.014) & $-0.098$ (0.023) & --- \\
+Flats              & $-0.178$ (0.024) & $-0.214$ (0.035) & $-0.392$ (0.059) & $-0.029$ \\
+Density (log)      & $-0.206$ (0.018) & $-0.270$ (0.026) & $-0.476$ (0.043) & $-0.018$ \\
+Private rented     & $-0.086$ (0.022) & $-0.126$ (0.033) & $-0.212$ (0.055) & $0.001$ \\
+Communal           & $0.024$ (0.012)  & $0.036$ (0.017)  & $0.060$ (0.029)  & $-0.001$ \\
+No usual resident  & $0.025$ (0.012)  & $0.035$ (0.017)  & $0.059$ (0.028)  & $0.001$ \\
+Built before 1919  & $-0.057$ (0.015) & $-0.091$ (0.021) & $-0.148$ (0.036) & $0.007$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Indirect effects account for about 59\% of the total effect of every covariate that enters only the count process, a share fixed by $\hat\rho$ and by the weighting of the units by their fitted intensity.
 A one-standard-deviation increase in the share of detached houses in every LSOA raises expected installations by 0.47 per LSOA, a quarter of the mean, of which 0.19 occurs through the LSOA's own latent propensity and 0.28 through the feedback from its neighbours.
-The inflation channel is small on average, because structural zeros are rare outside the urban cores: for the share of flats it contributes $-0.028$ out of a direct effect of $-0.228$, the rest being the reduction of the adoption intensity.
-With $n = 32{,}322$, all effects except those of the social-rented and elderly shares are precisely estimated, indirect effects included.
+The inflation channel is small on average, because structural zeros are rare outside the urban cores: for the share of flats it contributes $-0.029$ out of a direct effect of $-0.178$, the rest being the reduction of the adoption intensity.
+With $n = 32{,}322$, all effects except those of income deprivation and of households with children are distinguishable from zero at the 5\% level, indirect effects included.
 
 % ---------------------------------------------------------------------------
 \subsection{Diagnostics, sensitivity and robustness}\label{sec:app_diagnostics}
 
 \paragraph{Residual dependence.}
-Moran's $I$ on the raw counts is 0.386, and the Pearson residuals of the NB, the ZINB and the SAR-NB retain almost all of it ($I = 0.31$ for each, $p < 10^{-15}$): the aspatial models, and the instrumented lag, leave the spatial structure of adoption in the residuals.
-For ZISAR, residuals evaluated at the predicted field $\hat{\boldsymbol\eta}$ are negatively autocorrelated ($I = -0.105$), because the conditional mode borrows strength from the neighbours and over-smooths; such residuals cannot be used to test the adequacy of the latent SAR.
-The predicted innovations $\hat\bu = (\mathbf{I}-\hat\rho\bW)\hat{\boldsymbol\eta} - \bX\hat\bbeta$ retain a positive autocorrelation ($I = 0.19$, against 0.22 for the random effects of the ZINB-RE), suggesting that part of the dependence operates at scales that first-order contiguity does not capture.
+Moran's $I$ on the raw counts is 0.386, and the Pearson residuals of the NB, the ZINB and the SAR-NB retain most of it ($I \approx 0.30$ for each, $p < 10^{-15}$): the aspatial models, the instrumented lag and the additional covariates leave the spatial structure of adoption in the residuals.
+For ZISAR, residuals evaluated at the predicted field $\hat{\boldsymbol\eta}$ are negatively autocorrelated ($I = -0.103$), because the conditional mode borrows strength from the neighbours and over-smooths; such residuals cannot be used to test the adequacy of the latent SAR.
+The predicted innovations $\hat\bu = (\mathbf{I}-\hat\rho\bW)\hat{\boldsymbol\eta} - \bX\hat\bbeta$ retain a positive autocorrelation ($I = 0.19$, against 0.21 for the random effects of the ZINB-RE), suggesting that part of the dependence operates at scales that first-order contiguity does not capture.
 
 \paragraph{Spatial weights.}
-With 6- and 10-nearest-neighbour matrices (Appendix~\ref{app:sensitivity}), $\hat\rho$ is 0.584 and 0.633, the inflation coefficients and the signs of all count coefficients are unchanged, and the 10-nearest-neighbour matrix fits slightly better than queen contiguity (AIC lower by 135), in line with the residual dependence above.
+With 6- and 10-nearest-neighbour matrices (Appendix~\ref{app:sensitivity}), $\hat\rho$ is 0.579 and 0.630, the inflation coefficients and the signs of all significant count coefficients are unchanged, and the 10-nearest-neighbour matrix fits slightly better than queen contiguity (AIC lower by 124), in line with the residual dependence above.
 
 \paragraph{Cumulative adoption.}
 As a robustness check we fit the same specifications to the cumulative number of installations over the whole life of the scheme, April 2010 to March 2019 (mean 21.0, variance 458, 798 zeros, 2.5\%).
-Zero-inflation lowers the AIC of the NB from 241{,}464 to 240{,}689, and ZISAR to about 227{,}860, a gain of almost 13{,}000 points; the expected number of zeros is 626 for the NB, 928 for the ZINB and 861 for ZISAR, against 798 observed.
-The spatial and inflation parameters are close to those of the main analysis: $\hat\rho = 0.67$, and the structural-zero probability increases with flats ($\hat\gamma = 1.68$) and density ($0.71$) and decreases with private renting ($-0.42$).
+Zero-inflation lowers the AIC of the NB from 239{,}998 to 239{,}163, and ZISAR to about 227{,}690, a gain of some 11{,}500 points; the expected number of zeros is 631 for the NB, 934 for the ZINB and 954 for ZISAR, against 798 observed.
+The spatial and inflation parameters are close to those of the main analysis: $\hat\rho = 0.67$, and the structural-zero probability increases with flats ($\hat\gamma = 1.30$) and density ($0.64$) and decreases with pre-1919 housing ($-0.30$).
 With counts in the hundreds the optimiser stops with a false-convergence flag and the Hessian is not positive definite at the stopping point, so we do not report standard errors.
-Restarting the optimiser from the stopping point, with $\kappa$ free or held at its value there, moves the estimates only slightly: across the restarts we tried the log-likelihood changes by less than 20 points, $\hat\rho$ stays between 0.655 and 0.670 and the coefficient of flats between 1.68 and 1.92, which leaves the conclusions unchanged.
+Restarting the optimiser from the stopping point, with $\kappa$ free or held at its value there, raises the log-likelihood by 13 points and moves $\hat\rho$ to 0.647 and the coefficient of flats to 1.31, which leaves the conclusions unchanged.
 
 \paragraph{Interpretation.}
 The estimate of $\rho$ measures how strongly the latent adoption propensities of neighbouring areas move together, given the covariates.
 Peer effects of the kind documented by \citet{bollinger_gillingham2012} and \citet{graziano_gillingham2015} generate such dependence, but so do spatially correlated unobservables---the reach of local installers, roof orientation and shading, local campaigns---and a cross-section cannot separate the two \citep{manski1993,gibbons_overman2012}.
-What the application establishes is narrower and, for inference on the covariates, sufficient: treating post-reform adoption as spatially independent, or ignoring the structural zeros, distorts the estimated role of tenure, age and housing form, and leaves strong dependence in the residuals.
+That a richer set of socio-economic and structural covariates leaves $\hat\rho$ unchanged shows that the dependence is not a by-product of the observable composition of neighbourhoods, but it does not identify its source.
+What the application establishes is narrower and, for inference on the covariates, sufficient: treating post-reform adoption as spatially independent, or ignoring the structural zeros, distorts the estimated role of tenure, household composition and housing form, and leaves strong dependence in the residuals.
 
 \paragraph{Computation.}
-A ZISAR fit, including the Hessian and the standard errors, takes about three minutes on one core of a laptop (Apple M5 Pro), with the log-determinant computed by sparse Cholesky factorisation; the restricted fits take between one and four minutes, and the effects decomposition with $B = 500$ draws about six.
+A ZISAR fit, including the Hessian and the standard errors, takes between one and eight minutes on one core of a laptop (Apple M5 Pro), with the log-determinant computed by sparse Cholesky factorisation.
+The main specification stopped once with a false-convergence flag and was restarted from its stopping point with $\kappa$ near the bound, converging in another six minutes to the optimum that is also reached from the estimates of the SAR-NB-RE and of the 10-nearest-neighbour fit; the effects decomposition with $B = 500$ draws takes about three and a half minutes.
 The dense eigendecomposition of $\bW$, by contrast, would require some 8~GB of memory for the matrix alone.

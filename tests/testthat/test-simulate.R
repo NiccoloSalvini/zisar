@@ -28,3 +28,19 @@ test_that("rzisar() accepts a user weights matrix", {
   expect_null(sim$coords)
   expect_named(sim$data, "y")
 })
+
+test_that("rzisar() draws an inflation field in the general model", {
+  set.seed(4)
+  a <- rzisar(8, beta = c(1, 0.5), rho = 0.3, gamma = c(-1, 0.5))
+  set.seed(4)
+  b <- rzisar(8, beta = c(1, 0.5), rho = 0.3, gamma = c(-1, 0.5),
+              rho0 = 0.5, sigma0 = 0)
+  expect_identical(a$data, b$data)
+  expect_equal(a$g, rep(0, 64))
+
+  set.seed(5)
+  sim <- rzisar(8, beta = 1, rho = 0.3, gamma = -1, rho0 = 0.5, sigma0 = 1)
+  expect_gt(sd(sim$g), 0)
+  expect_equal(sim$pi, plogis(-1 + sim$g))
+  expect_equal(sim$truth$sigma0, 1)
+})

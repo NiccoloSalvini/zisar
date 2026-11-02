@@ -4,7 +4,17 @@
 \alias{rzisar}
 \title{Simulate data from the ZISAR model}
 \usage{
-rzisar(n_side, beta, rho, gamma, kappa = 2, sigma = 0.5, W = NULL)
+rzisar(
+  n_side,
+  beta,
+  rho,
+  gamma,
+  kappa = 2,
+  sigma = 0.5,
+  rho0 = 0,
+  sigma0 = 0,
+  W = NULL
+)
 }
 \arguments{
 \item{n_side}{Side of the square lattice, so \eqn{n} = \code{n_side^2} units.
@@ -20,6 +30,10 @@ Ignored when \code{W} is supplied.}
 
 \item{sigma}{Standard deviation of the random effects.}
 
+\item{rho0, sigma0}{Spatial autoregressive parameter and standard deviation
+of the inflation field (general model). With \code{sigma0 = 0} no field is
+drawn and the random-number stream is that of the restricted model.}
+
 \item{W}{Optional row-standardised weights matrix (or \code{spdep} \code{listw})
 to use instead of the lattice.}
 }
@@ -32,14 +46,18 @@ A list with
 \item{coords}{Lattice coordinates (\code{row}, \code{col}), or \code{NULL} with a
 user-supplied \code{W}.}
 \item{truth}{The parameters used.}
-\item{eta, mu, pi, s}{Latent field, negative binomial means,
-inflation probabilities and structural-zero indicators.}
+\item{eta, g, mu, pi, s}{Latent field, inflation field (zero in the
+restricted model), negative binomial means, inflation probabilities
+and structural-zero indicators.}
 }
 \description{
-Draws one data set from the restricted ZISAR model, on a regular lattice
-with queen contiguity (the Monte Carlo design of the ZISAR paper) or on a
-weights matrix supplied by the user. Covariates are independent standard
-normal; the first element of \code{beta} and of \code{gamma} is the intercept.
+Draws one data set from the ZISAR model, on a regular lattice with queen
+contiguity (the Monte Carlo design of the ZISAR paper) or on a weights
+matrix supplied by the user. Covariates are independent standard normal;
+the first element of \code{beta} and of \code{gamma} is the intercept. With
+\code{sigma0 > 0} the inflation predictor has a SAR field of its own (the
+general model of \code{\link[=zisar]{zisar()}}); the default \code{sigma0 = 0} gives the
+restricted model.
 }
 \examples{
 set.seed(42)

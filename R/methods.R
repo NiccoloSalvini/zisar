@@ -2,19 +2,22 @@
 #'
 #' Standard accessors for objects returned by [zisar()] and [zisar_fit()].
 #'
-#' `coef()` and `vcov()` cover the regression coefficients and \eqn{\rho};
-#' the negative binomial shape \eqn{\kappa} and the random-effect standard
-#' deviation \eqn{\sigma} are reported by `summary()` and stored in
-#' `object$kappa` and `object$sigma`. The covariance of \eqn{\rho} comes from
-#' the delta method; rows and columns of parameters held fixed are `NA`.
+#' `coef()` and `vcov()` cover the regression coefficients and \eqn{\rho}
+#' (and \eqn{\rho_0} in the general model); the negative binomial shape
+#' \eqn{\kappa} and the random-effect standard deviations \eqn{\sigma} and
+#' \eqn{\sigma_0} are reported by `summary()` and stored in `object$kappa`,
+#' `object$sigma` and `object$sigma0`. The covariance of \eqn{\rho} and
+#' \eqn{\rho_0} comes from the delta method; rows and columns of parameters
+#' held fixed are `NA`.
 #'
 #' `logLik()` returns the Laplace-approximated marginal log-likelihood, with
 #' degrees of freedom equal to the number of estimated parameters, so
 #' [stats::AIC()] and [stats::BIC()] work on fitted models.
 #'
 #' @param object,x A fitted `"zisar"` object.
-#' @param model Which coefficients: `"full"` (count, zero-inflation and
-#'   \eqn{\rho}), `"count"` or `"zero"`.
+#' @param model Which coefficients: `"full"` (count, zero-inflation,
+#'   \eqn{\rho} and, in the general model, \eqn{\rho_0}), `"count"` or
+#'   `"zero"`.
 #' @param digits Number of significant digits to print.
 #' @param ... Not used.
 #'
@@ -42,7 +45,8 @@ coef.zisar <- function(object, model = c("full", "count", "zero"), ...) {
     zero = cf$zero,
     full = c(stats::setNames(cf$count, paste0("count_", names(cf$count))),
              stats::setNames(cf$zero, paste0("zero_", names(cf$zero))),
-             rho = object$rho)
+             rho = object$rho,
+             if (isTRUE(object$zero_spatial)) c(rho0 = object$rho0))
   )
 }
 
@@ -52,13 +56,15 @@ vcov.zisar <- function(object, model = c("full", "count", "zero"), ...) {
   model <- match.arg(model)
   p <- length(object$coefficients$count)
   q <- length(object$coefficients$zero)
-  V <- .vcov_full_internal(object)[seq_len(p + q + 1), seq_len(p + q + 1)]
+  zs <- isTRUE(object$zero_spatial)
+  keep <- c(seq_len(p + q + 1), if (zs) p + q + 4)
+  V <- .vcov_full_internal(object)[keep, keep, drop = FALSE]
   # d rho / d rho_raw = 1 - rho^2; elementwise, so NA rows do not spread
-  jac <- c(rep(1, p + q), 1 - object$rho^2)
+  jac <- c(rep(1, p + q), 1 - object$rho^2, if (zs) 1 - object$rho0^2)
   V <- V * outer(jac, jac)
   nm <- names(coef(object, "full"))
   dimnames(V) <- list(nm, nm)
-  idx <- switch(model, full = seq_len(p + q + 1), count = seq_len(p),
+  idx <- switch(model, full = seq_along(keep), count = seq_len(p),
                 zero = p + seq_len(q))
   V <- V[idx, idx, drop = FALSE]
   if (model != "full") dimnames(V) <- list(names(coef(object, model)),
@@ -66,7 +72,7 @@ vcov.zisar <- function(object, model = c("full", "count", "zero"), ...) {
   V
 }
 
-# Covariance of all p + q + 3 internal parameters, NA where fixed
+# Covariance of all internal parameters, NA where fixed
 .vcov_full_internal <- function(object) {
   nm <- names(object$par)
   V <- matrix(NA_real_, length(nm), length(nm), dimnames = list(nm, nm))
@@ -103,6 +109,10 @@ print.zisar <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat(sprintf("\nrho = %s   kappa = %s   sigma = %s\n",
               format(x$rho, digits = digits), format(x$kappa, digits = digits),
               format(x$sigma, digits = digits)))
+  if (isTRUE(x$zero_spatial))
+    cat(sprintf("Inflation field: rho0 = %s   sigma0 = %s\n",
+                format(x$rho0, digits = digits),
+                format(x$sigma0, digits = digits)))
   cat(sprintf("Log-likelihood: %s on %d Df   (n = %d)\n\n",
               format(x$loglik, digits = digits + 2L), x$df, x$n))
   invisible(x)
@@ -125,18 +135,22 @@ summary.zisar <- function(object, ...) {
   rownames(zero) <- names(object$coefficients$zero)
 
   nat <- c(rho = object$rho, kappa = object$kappa, sigma = object$sigma)
+  if (isTRUE(object$zero_spatial))
+    nat <- c(nat, rho0 = object$rho0, sigma0 = object$sigma0)
   spatial <- wald(nat, object$se_natural[names(nat)])
-  spatial[c("kappa", "sigma"), c("z value", "Pr(>|z|)")] <- NA
+  no_test <- intersect(c("kappa", "sigma", "sigma0"), names(nat))
+  spatial[no_test, c("z value", "Pr(>|z|)")] <- NA
   rownames(spatial) <- names(nat)
 
   ll <- logLik(object)
-  user_names <- c(rho_raw = "rho", log_kappa = "kappa", log_sigma = "sigma")
+  user_names <- c(rho_raw = "rho", log_kappa = "kappa", log_sigma = "sigma",
+                  rho0_raw = "rho0", log_sigma0 = "sigma0")
   fixed <- names(object$free)[!object$free]
   fixed[fixed %in% names(user_names)] <- user_names[fixed[fixed %in%
                                                             names(user_names)]]
   structure(
     list(call = object$call, count = count, zero = zero, spatial = spatial,
-         fixed = fixed,
+         zero_spatial = isTRUE(object$zero_spatial), fixed = fixed,
          loglik = object$loglik, df = object$df, n = object$n,
          zeros = mean(object$y == 0),
          aic = stats::AIC(ll), bic = stats::BIC(ll),
@@ -164,7 +178,8 @@ print.summary.zisar <- function(x, digits = max(3L, getOption("digits") - 3L),
   cat("\nZero-inflation model coefficients (binomial, logit link):\n")
   stats::printCoefmat(x$zero, digits = digits, signif.stars = signif.stars,
                       na.print = "NA")
-  cat("\nSpatial and dispersion parameters:\n")
+  cat("\nSpatial and dispersion parameters",
+      if (x$zero_spatial) " (rho0, sigma0: inflation field)", ":\n", sep = "")
   stats::printCoefmat(x$spatial, digits = digits, signif.stars = signif.stars,
                       na.print = "", has.Pvalue = TRUE, P.values = TRUE)
   if (length(x$fixed))
@@ -198,7 +213,8 @@ print.summary.zisar <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' recomputed through the spatial multiplier,
 #' \eqn{\eta^* = (I - \rho W)^{-1}(X^*\beta + \hat u)}, keeping the predicted
 #' random effects \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} at their
-#' estimates, so a change in one unit spills over to its neighbours.
+#' estimates, so a change in one unit spills over to its neighbours. In the
+#' general model the inflation field \eqn{g} is also kept at its mode.
 #' Predictions for new units would need a new weights matrix and are not
 #' supported.
 #'
@@ -244,7 +260,8 @@ predict.zisar <- function(object, newdata = NULL,
     u_hat <- as.numeric(A %*% object$eta) - as.numeric(object$X %*% beta)
     eta <- as.numeric(Matrix::solve(A, as.numeric(des$X %*% beta) + u_hat))
     mu <- exp(eta + des$offset)
-    pi <- as.numeric(plogis(des$Z %*% object$coefficients$zero))
+    pi <- as.numeric(plogis(as.numeric(des$Z %*% object$coefficients$zero) +
+                              .g_hat(object)))
   }
   switch(type,
     response = (1 - pi) * mu,
@@ -253,6 +270,9 @@ predict.zisar <- function(object, newdata = NULL,
     eta = eta
   )
 }
+
+# Mode of the inflation field: zero in the restricted model
+.g_hat <- function(object) if (is.null(object$g)) 0 else object$g
 
 # Design matrices and offset of newdata, with the fitted terms and levels
 .new_design <- function(object, newdata) {
@@ -299,9 +319,10 @@ residuals.zisar <- function(object, type = c("pearson", "response"), ...) {
 #' Simulate responses from a fitted ZISAR model
 #'
 #' Draws new count vectors from the fitted model, for example for a
-#' parametric bootstrap. Each draw takes new random effects \eqn{u}, new
-#' structural-zero indicators and new negative binomial counts, at the
-#' estimated parameters and the observed covariates.
+#' parametric bootstrap. Each draw takes new random effects \eqn{u} (and a
+#' new inflation field \eqn{g} in the general model), new structural-zero
+#' indicators and new negative binomial counts, at the estimated parameters
+#' and the observed covariates.
 #'
 #' @param object A fitted `"zisar"` object.
 #' @param nsim Number of response vectors to simulate.
@@ -319,10 +340,12 @@ residuals.zisar <- function(object, type = c("pearson", "response"), ...) {
 #' c(observed = mean(sim$data$y == 0), simulated = mean(as.matrix(ys) == 0))
 simulate.zisar <- function(object, nsim = 1, seed = NULL, ...) {
   if (!is.null(seed)) set.seed(seed)
+  zs <- isTRUE(object$zero_spatial)
   sims <- replicate(nsim, .rzisar_core(
     object$X, object$Z, object$W, object$coefficients$count,
     object$coefficients$zero, object$rho, object$kappa, object$sigma,
-    object$offset)$y, simplify = FALSE)
+    object$offset, rho0 = if (zs) object$rho0 else 0,
+    sigma0 = if (zs) object$sigma0 else 0)$y, simplify = FALSE)
   out <- as.data.frame(sims, col.names = paste0("sim_", seq_len(nsim)))
   attr(out, "seed") <- seed
   out

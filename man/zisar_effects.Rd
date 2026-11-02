@@ -53,7 +53,8 @@ inflation part alone has this direct effect only.
 Standard errors and intervals are simulation-based: parameters are drawn
 from their estimated asymptotic normal distribution and the effects
 recomputed for each draw, keeping the predicted random effects
-\eqn{\hat u = (I - \rho W)\hat\eta - X\beta} at their estimates. For
+\eqn{\hat u = (I - \rho W)\hat\eta - X\beta} (and, in the general
+model, the inflation field \eqn{\hat g}) at their estimates. For
 \eqn{n > 3000}, the diagonal of \eqn{S(\rho)} along the draws is
 interpolated between seven exact evaluations.
 }

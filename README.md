@@ -20,6 +20,9 @@ y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(e^{\eta_i}, \kappa),
 \qquad \mathrm{logit}(\pi_i) = z_i'\gamma .
 $$
 
+With `zero_spatial = TRUE` the zero-inflation predictor gets a spatial
+field of its own, for structural zeros that cluster in space.
+
 Parameters are estimated by maximising the Laplace approximation to the
 marginal likelihood with [TMB](https://cran.r-project.org/package=TMB),
 whose automatic differentiation and sparse matrix algebra make tens of
@@ -56,10 +59,10 @@ summary(fit)
 #> 400 spatial units, 45.5% zeros
 #> 
 #> Count model coefficients (SAR negative binomial, log link):
-#>             Estimate Std. Error z value Pr(>|z|)    
-#> (Intercept)   0.3748     0.1071    3.50  0.00047 ***
-#> x1            0.5477     0.0778    7.04  1.9e-12 ***
-#> x2           -0.4210     0.0699   -6.02  1.7e-09 ***
+#>             Estimate Std. Error z value        Pr(>|z|)    
+#> (Intercept)   0.3748     0.1071    3.50         0.00047 ***
+#> x1            0.5477     0.0778    7.04 0.0000000000019 ***
+#> x2           -0.4210     0.0699   -6.02 0.0000000017310 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
@@ -71,10 +74,10 @@ summary(fit)
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
 #> Spatial and dispersion parameters:
-#>       Estimate Std. Error z value Pr(>|z|)    
-#> rho      0.599      0.110    5.44  5.2e-08 ***
-#> kappa    2.509      1.838                     
-#> sigma    0.479      0.161                     
+#>       Estimate Std. Error z value    Pr(>|z|)    
+#> rho      0.599      0.110    5.44 0.000000052 ***
+#> kappa    2.509      1.838                        
+#> sigma    0.479      0.161                        
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
@@ -92,14 +95,14 @@ zisar_effects(fit, B = 100)
 #> ZISAR average effects on E[y] (simulation SEs, B = 100)
 #> 
 #>              Direct         Indirect            Total
-#> x1  1.4169 (0.2733)  1.8708 (0.9395)  3.2877 (1.1047)
-#> x2 -1.0890 (0.2309) -1.4378 (0.7398) -2.5268 (0.8952)
-#> z1 -0.5302 (0.1107)  0.0000 (0.0000) -0.5302 (0.1107)
+#> x1  1.4169 (0.2763)  1.8708 (0.9451)  3.2877 (1.0974)
+#> x2 -1.0890 (0.2339) -1.4378 (0.7004) -2.5268 (0.8249)
+#> z1 -0.5302 (0.1113)  0.0000 (0.0000) -0.5302 (0.1113)
 ```
 
 `vignette("zisar")` covers the model, spatial weights from real
-geography, counterfactual predictions, model comparison and large data
-sets.
+geography, counterfactual predictions, model comparison, clustered
+structural zeros and large data sets.
 
 ## Citation
 

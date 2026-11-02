@@ -41,7 +41,8 @@ weights matrix, with some covariates changed. The latent field is
 recomputed through the spatial multiplier,
 \eqn{\eta^* = (I - \rho W)^{-1}(X^*\beta + \hat u)}, keeping the predicted
 random effects \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} at their
-estimates, so a change in one unit spills over to its neighbours.
+estimates, so a change in one unit spills over to its neighbours. In the
+general model the inflation field \eqn{g} is also kept at its mode.
 Predictions for new units would need a new weights matrix and are not
 supported.
 }

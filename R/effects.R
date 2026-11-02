@@ -23,7 +23,8 @@
 #' Standard errors and intervals are simulation-based: parameters are drawn
 #' from their estimated asymptotic normal distribution and the effects
 #' recomputed for each draw, keeping the predicted random effects
-#' \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} at their estimates. For
+#' \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} (and, in the general
+#' model, the inflation field \eqn{\hat g}) at their estimates. For
 #' \eqn{n > 3000}, the diagonal of \eqn{S(\rho)} along the draws is
 #' interpolated between seven exact evaluations.
 #'
@@ -54,6 +55,7 @@ zisar_effects <- function(object, B = 500, level = 0.95) {
   p <- ncol(X)
   q <- ncol(Z)
   I_n <- Matrix::Diagonal(n)
+  g_hat <- .g_hat(object)
 
   # Covariates (intercepts excluded) and their columns in X and Z
   terms <- union(.covariates(X), .covariates(Z))
@@ -64,7 +66,7 @@ zisar_effects <- function(object, B = 500, level = 0.95) {
 
   avg <- function(beta, gamma, rho, eta, s_ii) {
     mu <- exp(eta + object$offset)
-    pi <- as.numeric(plogis(Z %*% gamma))
+    pi <- as.numeric(plogis(as.numeric(Z %*% gamma) + g_hat))
     d <- (1 - pi) * mu
     s_1 <- as.numeric(Matrix::solve(I_n - rho * W, rep(1, n)))
     zch <- mean(mu * pi * (1 - pi))

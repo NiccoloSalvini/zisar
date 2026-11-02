@@ -2,7 +2,7 @@
 
 First release.
 
-* `zisar()` fits the restricted ZISAR model from a two-part formula
+* `zisar()` fits the ZISAR model from a two-part formula
   `y ~ count terms | zero-inflation terms` and a spatial weights matrix
   (base matrix, sparse `Matrix` or `spdep` `listw`); `zisar_fit()` is the
   matrix interface.
@@ -10,6 +10,9 @@ First release.
   the eigenvalues of `W` or, for large `n`, from a sparse Cholesky factor.
 * `fixed` holds parameters at given values, for the nested ZINB-RE
   (`rho = 0`) and SAR-NB-RE models.
+* `zero_spatial = TRUE` fits the general model, with a SAR random field in
+  the zero-inflation predictor (parameters `rho0` and `sigma0`); `rzisar()`
+  simulates from it with `sigma0 > 0`.
 * `offset()` terms in the count part, for exposures.
 * Methods: `summary()`, `coef()`, `vcov()`, `logLik()` (hence `AIC()`,
   `BIC()`), `nobs()`, `fitted()`, `residuals()`, `predict()` (including

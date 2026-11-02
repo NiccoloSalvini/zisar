@@ -27,6 +27,9 @@ y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(e^{\eta_i}, \kappa),
 \qquad \mathrm{logit}(\pi_i) = z_i'\gamma .
 $$
 
+With `zero_spatial = TRUE` the zero-inflation predictor gets a spatial field
+of its own, for structural zeros that cluster in space.
+
 Parameters are estimated by maximising the Laplace approximation to the
 marginal likelihood with [TMB](https://cran.r-project.org/package=TMB), whose
 automatic differentiation and sparse matrix algebra make tens of thousands
@@ -67,7 +70,8 @@ zisar_effects(fit, B = 100)
 ```
 
 `vignette("zisar")` covers the model, spatial weights from real geography,
-counterfactual predictions, model comparison and large data sets.
+counterfactual predictions, model comparison, clustered structural zeros and
+large data sets.
 
 ## Citation
 

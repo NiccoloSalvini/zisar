@@ -9,6 +9,7 @@ zisar(
   formula,
   data,
   W,
+  zero_spatial = FALSE,
   fixed = NULL,
   start = NULL,
   logdet = c("auto", "eigen", "sparse"),
@@ -22,6 +23,7 @@ zisar_fit(
   Z = NULL,
   W,
   offset = NULL,
+  zero_spatial = FALSE,
   fixed = NULL,
   start = NULL,
   logdet = c("auto", "eigen", "sparse"),
@@ -44,15 +46,18 @@ spatial multiplier, so none can be dropped.}
 'Matrix') or an \code{spdep} \code{listw} object, with zero diagonal and
 preferably row-standardised.}
 
+\item{zero_spatial}{If \code{TRUE}, fit the general model, with a SAR random
+field in the inflation predictor (see Model).}
+
 \item{fixed}{Optional named list of parameters held at fixed values:
-\code{rho}, \code{kappa}, \code{sigma} (scalars, natural scale), \code{beta} (length
-\code{ncol(X)}) or \code{gamma} (length \code{ncol(Z)}). In \code{beta} and \code{gamma}, \code{NA}
-entries are estimated.}
+\code{rho}, \code{kappa}, \code{sigma}, and in the general model \code{rho0} and \code{sigma0}
+(scalars, natural scale), \code{beta} (length \code{ncol(X)}) or \code{gamma} (length
+\code{ncol(Z)}). In \code{beta} and \code{gamma}, \code{NA} entries are estimated.}
 
 \item{start}{Optional named list of starting values, with the same names
 and scales as \code{fixed}. Defaults: \code{beta} from a Poisson regression,
 inflation intercept from the share of zeros, \code{rho = 0}, \code{kappa = 1},
-\code{sigma = 0.5}.}
+\code{sigma = 0.5}, and \code{rho0 = 0}, \code{sigma0 = 0.5}.}
 
 \item{logdet}{Method for the log-determinant: \code{"auto"}, \code{"eigen"} or
 \code{"sparse"}. See Estimation.}
@@ -80,7 +85,12 @@ An object of class \code{"zisar"}, a list with, among others:
 (\eqn{\gamma}) coefficients.}
 \item{rho, kappa, sigma}{Spatial autoregressive parameter, negative
 binomial shape and random-effect standard deviation.}
+\item{rho0, sigma0}{In the general model, the spatial autoregressive
+parameter and standard deviation of the inflation field; \code{NULL}
+otherwise.}
 \item{eta}{Mode of the latent field \eqn{\eta} given the data.}
+\item{g}{Mode of the inflation field \eqn{g} (zero in the restricted
+model).}
 \item{fitted.values}{Fitted means \eqn{E[y_i] = (1 - \pi_i)\mu_i}.}
 \item{loglik}{Laplace-approximated marginal log-likelihood.}
 \item{convergence, message}{Convergence code and message of
@@ -95,11 +105,13 @@ Use the methods \link[=summary.zisar]{summary()}, \link[=coef.zisar]{coef()},
 \code{\link[=zisar_effects]{zisar_effects()}} rather than the components directly.
 }
 \description{
-Fits the restricted ZISAR model of Salvini, Arbia and Nardelli (2026): a
+Fits the ZISAR model of Salvini, Arbia and Nardelli (2026): a
 zero-inflated negative binomial model whose log-mean follows a
 simultaneous autoregressive (SAR) process with unit-level random effects.
-\code{zisar()} takes a two-part formula and a data frame; \code{zisar_fit()} is the
-matrix interface underneath it.
+By default the inflation probability depends on covariates only (the
+restricted model); with \code{zero_spatial = TRUE} it has a spatial random
+field of its own (the general model). \code{zisar()} takes a two-part formula
+and a data frame; \code{zisar_fit()} is the matrix interface underneath it.
 }
 \section{Model}{
 
@@ -116,16 +128,26 @@ with \eqn{\mathrm{Var}(y_i \mid \text{not a structural zero}) = \mu_i +
 \mu_i^2/\kappa} and \eqn{o_i} an optional offset (log exposure). The
 offset scales unit \eqn{i} only: it does not pass through the spatial
 multiplier.
+
+In the general model (\code{zero_spatial = TRUE}) the inflation predictor has
+a SAR random field of its own,
+\deqn{\mathrm{logit}(\pi_i) = z_i'\gamma + g_i, \qquad
+  g = \rho_0 W g + e_0, \qquad e_0 \sim N(0, \sigma_0^2 I),}
+independent of \eqn{u}, so that structural zeros can cluster in space
+beyond what the covariates explain. The restricted model is the limit
+\eqn{\sigma_0 \to 0}.
 }
 
 \section{Estimation}{
 
 The latent field \eqn{\eta} is integrated out with the Laplace
-approximation in 'TMB', and the marginal likelihood is maximised with
-\code{\link[stats:nlminb]{stats::nlminb()}} over \eqn{(\beta, \gamma, \rho, \kappa, \sigma)}, with
-\eqn{\rho = \tanh(\rho_{raw})} restricted to \eqn{(-1, 1)}. Standard
-errors come from the inverse Hessian of the Laplace objective; those of
-\eqn{\rho}, \eqn{\kappa} and \eqn{\sigma} from the delta method.
+approximation in 'TMB' (together with \eqn{g} in the general model), and
+the marginal likelihood is maximised with \code{\link[stats:nlminb]{stats::nlminb()}} over
+\eqn{(\beta, \gamma, \rho, \kappa, \sigma)}, plus \eqn{(\rho_0,
+\sigma_0)} in the general model, with \eqn{\rho = \tanh(\rho_{raw})}
+restricted to \eqn{(-1, 1)}. Standard errors come from the inverse Hessian
+of the Laplace objective; those of \eqn{\rho}, \eqn{\kappa},
+\eqn{\sigma}, \eqn{\rho_0} and \eqn{\sigma_0} from the delta method.
 
 The Laplace approximation can break down. For a zero count, the
 conditional distribution of \eqn{\eta_i} can be bimodal (a structural zero
@@ -139,6 +161,13 @@ log-likelihood, the fit is restarted from three other values of
 \eqn{\kappa} and \eqn{\sigma} and from up to three random perturbations of
 the best point (this uses the random number generator). If no usable
 optimum is found, \code{zisar()} warns and \code{laplace_ok} is \code{FALSE}.
+
+The general model is more exposed to this breakdown: a zero count can
+come from a large \eqn{g_i} (a structural zero) or from a small
+\eqn{\eta_i} (a negative binomial zero), and the two latent fields
+compete for the same zeros. Fit the restricted model first, and treat a
+general fit with \code{laplace_ok = FALSE} as uninformative about
+\eqn{(\rho_0, \sigma_0)}.
 
 The log-determinant \eqn{\log|I - \rho W|} is computed either from the
 eigenvalues of \eqn{W}, found once in \eqn{O(n^3)} time and \eqn{O(n^2)}
@@ -156,7 +185,10 @@ negative binomial with random effects (ZINB-RE), and with an
 intercept-only inflation part (\code{y ~ x | 1}), \code{fixed = list(gamma = -20)}
 sets \eqn{\pi_i \approx 0}, the SAR negative binomial with random effects
 (SAR-NB-RE). Likelihood-ratio tests between nested fits use
-\link[=logLik.zisar]{logLik()}.
+\link[=logLik.zisar]{logLik()}. The restricted model sits on the boundary of the
+general one (\eqn{\sigma_0 = 0}), so the likelihood-ratio statistic
+between them does not have the usual chi-squared distribution: its
+p-value from \eqn{\chi^2_2} is conservative.
 }
 
 \examples{
@@ -170,6 +202,16 @@ fit0 <- zisar(y ~ x1 | z1, data = sim$data, W = sim$W,
               fixed = list(rho = 0))
 lr <- 2 * (logLik(fit) - logLik(fit0))
 pchisq(as.numeric(lr), df = 1, lower.tail = FALSE)
+
+\donttest{
+# General model: zeros clustered by a spatial field of their own
+set.seed(2)
+sim2 <- rzisar(15, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
+               rho0 = 0.6, sigma0 = 1)
+fit2 <- zisar(y ~ x1 | z1, data = sim2$data, W = sim2$W,
+              zero_spatial = TRUE)
+summary(fit2)
+}
 }
 \references{
 Salvini, N., Arbia, G. and Nardelli, V. (2026). ZISAR: A zero-inflated

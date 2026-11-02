@@ -48,6 +48,10 @@ negative binomial shape \(\kappa\), the structural zeros \(\pi_i\) and the
 random effects \(\sigma\). The latent field is integrated out with the
 Laplace approximation in [TMB](https://cran.r-project.org/package=TMB).
 
+This is the *restricted* model: the structural zeros depend on covariates
+only. The *general* model adds a spatial field to the inflation predictor,
+for zeros that cluster in space; see [below](#clustered-structural-zeros).
+
 ## Fitting a model
 
 `rzisar()` simulates data on a regular lattice with queen contiguity. Here
@@ -152,6 +156,47 @@ random effects (`fixed = list(rho = 0)`) is nested in ZISAR, but on
 spatially dependent data it is often not estimable: the random effects have
 to absorb the spatial structure, \(\sigma\) grows, and the Laplace
 approximation breaks down (see below).
+
+## Clustered structural zeros
+
+In the restricted model, structural zeros depend on \(z_i\) only. When
+whole areas are out of the market (a planning restriction, no supplier
+nearby), the zeros cluster beyond what the covariates explain. The general
+model gives the inflation predictor a SAR field of its own,
+
+\[
+\mathrm{logit}(\pi_i) = z_i'\gamma + g_i, \qquad
+g = (I - \rho_0 W)^{-1} e_0, \qquad e_0 \sim N(0, \sigma_0^2 I),
+\]
+
+independent of \(u\). `rzisar()` draws it when `sigma0 > 0`, and
+`zero_spatial = TRUE` fits it:
+
+```{r general}
+set.seed(2)
+sim0 <- rzisar(15, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
+               rho0 = 0.6, sigma0 = 1)
+fit_r <- zisar(y ~ x1 | z1, data = sim0$data, W = sim0$W)
+fit_g <- zisar(y ~ x1 | z1, data = sim0$data, W = sim0$W,
+               zero_spatial = TRUE)
+summary(fit_g)$spatial
+```
+
+The restricted model is the general one with \(\sigma_0 = 0\), on the
+boundary of the parameter space, so the likelihood-ratio statistic has a
+mixture distribution and the \(\chi^2_2\) p-value is conservative:
+
+```{r general-lr}
+lr <- 2 * (logLik(fit_g) - logLik(fit_r))
+pchisq(as.numeric(lr), df = 2, lower.tail = FALSE)
+```
+
+The two latent fields compete for the same zeros (a zero is either a
+structural zero, with a large \(g_i\), or a negative binomial zero, with a
+small \(\eta_i\)), so the general model is harder to estimate and more
+exposed to the breakdown described next. Fit the restricted model first,
+and read \(\rho_0\) and \(\sigma_0\) only from a general fit with
+`laplace_ok = TRUE`.
 
 ## When the Laplace approximation breaks down
 

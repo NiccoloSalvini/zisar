@@ -5,7 +5,7 @@
 \alias{zisar-package}
 \title{zisar: Zero-Inflated Spatial Autoregressive Models for Count Data}
 \description{
-Fits the zero-inflated spatial autoregressive (ZISAR) model for spatial count data with excess zeros. A simultaneous autoregressive (SAR) process on the latent log-mean of a zero-inflated negative binomial model carries spatial spillovers, and unit-level Gaussian random effects absorb residual heterogeneity. Parameters are estimated by maximising the Laplace approximation to the marginal likelihood with 'TMB', whose automatic differentiation and sparse matrix algebra make tens of thousands of spatial units feasible. Methods are provided for direct, indirect and total marginal effects, counterfactual prediction, residuals and simulation from the model.
+Fits the zero-inflated spatial autoregressive (ZISAR) model for spatial count data with excess zeros. A simultaneous autoregressive (SAR) process on the latent log-mean of a zero-inflated negative binomial model carries spatial spillovers, and unit-level Gaussian random effects absorb residual heterogeneity. An optional second SAR field in the zero-inflation predictor captures spatially clustered structural zeros. Parameters are estimated by maximising the Laplace approximation to the marginal likelihood with 'TMB', whose automatic differentiation and sparse matrix algebra make tens of thousands of spatial units feasible. Methods are provided for direct, indirect and total marginal effects, counterfactual prediction, residuals and simulation from the model.
 }
 \details{
 The main function is \code{\link[=zisar]{zisar()}}, which fits the model from a two-part

@@ -33,3 +33,23 @@ fits_rho0 <- local({
     cache
   }
 })
+
+# Data from the general model (inflation field with rho0 = 0.6, sigma0 = 1):
+# list(sim, restricted fit, general fit)
+fits_general <- local({
+  cache <- NULL
+  function() {
+    if (is.null(cache)) {
+      set.seed(2)
+      sim <- rzisar(15, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
+                    rho0 = 0.6, sigma0 = 1)
+      cache <<- list(
+        sim = sim,
+        restricted = zisar(y ~ x1 | z1, data = sim$data, W = sim$W),
+        general = zisar(y ~ x1 | z1, data = sim$data, W = sim$W,
+                        zero_spatial = TRUE)
+      )
+    }
+    cache
+  }
+})

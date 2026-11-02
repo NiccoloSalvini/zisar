@@ -21,9 +21,10 @@ each.
 }
 \description{
 Draws new count vectors from the fitted model, for example for a
-parametric bootstrap. Each draw takes new random effects \eqn{u}, new
-structural-zero indicators and new negative binomial counts, at the
-estimated parameters and the observed covariates.
+parametric bootstrap. Each draw takes new random effects \eqn{u} (and a
+new inflation field \eqn{g} in the general model), new structural-zero
+indicators and new negative binomial counts, at the estimated parameters
+and the observed covariates.
 }
 \examples{
 set.seed(1)

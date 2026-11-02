@@ -1,9 +1,12 @@
 #' Simulate data from the ZISAR model
 #'
-#' Draws one data set from the restricted ZISAR model, on a regular lattice
-#' with queen contiguity (the Monte Carlo design of the ZISAR paper) or on a
-#' weights matrix supplied by the user. Covariates are independent standard
-#' normal; the first element of `beta` and of `gamma` is the intercept.
+#' Draws one data set from the ZISAR model, on a regular lattice with queen
+#' contiguity (the Monte Carlo design of the ZISAR paper) or on a weights
+#' matrix supplied by the user. Covariates are independent standard normal;
+#' the first element of `beta` and of `gamma` is the intercept. With
+#' `sigma0 > 0` the inflation predictor has a SAR field of its own (the
+#' general model of [zisar()]); the default `sigma0 = 0` gives the
+#' restricted model.
 #'
 #' @param n_side Side of the square lattice, so \eqn{n} = `n_side^2` units.
 #'   Ignored when `W` is supplied.
@@ -12,6 +15,9 @@
 #' @param gamma Zero-inflation coefficients, intercept first.
 #' @param kappa Negative binomial shape.
 #' @param sigma Standard deviation of the random effects.
+#' @param rho0,sigma0 Spatial autoregressive parameter and standard deviation
+#'   of the inflation field (general model). With `sigma0 = 0` no field is
+#'   drawn and the random-number stream is that of the restricted model.
 #' @param W Optional row-standardised weights matrix (or `spdep` `listw`)
 #'   to use instead of the lattice.
 #'
@@ -23,8 +29,9 @@
 #'   \item{coords}{Lattice coordinates (`row`, `col`), or `NULL` with a
 #'     user-supplied `W`.}
 #'   \item{truth}{The parameters used.}
-#'   \item{eta, mu, pi, s}{Latent field, negative binomial means,
-#'     inflation probabilities and structural-zero indicators.}
+#'   \item{eta, g, mu, pi, s}{Latent field, inflation field (zero in the
+#'     restricted model), negative binomial means, inflation probabilities
+#'     and structural-zero indicators.}
 #' @export
 #' @examples
 #' set.seed(42)
@@ -32,9 +39,9 @@
 #' head(sim$data)
 #' mean(sim$data$y == 0)
 rzisar <- function(n_side, beta, rho, gamma, kappa = 2, sigma = 0.5,
-                   W = NULL) {
+                   rho0 = 0, sigma0 = 0, W = NULL) {
   stopifnot(length(beta) >= 1, length(gamma) >= 1, abs(rho) < 1,
-            kappa > 0, sigma >= 0)
+            kappa > 0, sigma >= 0, abs(rho0) < 1, sigma0 >= 0)
   if (is.null(W)) {
     W <- lattice_weights(n_side)
     coords <- expand.grid(row = seq_len(n_side), col = seq_len(n_side))
@@ -52,26 +59,32 @@ rzisar <- function(n_side, beta, rho, gamma, kappa = 2, sigma = 0.5,
   colnames(X) <- c("(Intercept)", if (p > 1) paste0("x", seq_len(p - 1)))
   colnames(Z) <- c("(Intercept)", if (q > 1) paste0("z", seq_len(q - 1)))
 
-  draw <- .rzisar_core(X, Z, W, beta, gamma, rho, kappa, sigma)
+  draw <- .rzisar_core(X, Z, W, beta, gamma, rho, kappa, sigma,
+                       rho0 = rho0, sigma0 = sigma0)
   data <- data.frame(y = draw$y, X[, -1, drop = FALSE], Z[, -1, drop = FALSE],
                      check.names = FALSE)
 
   list(data = data, W = W, coords = coords,
        truth = list(beta = beta, rho = rho, gamma = gamma, kappa = kappa,
-                    sigma = sigma),
-       eta = draw$eta, mu = draw$mu, pi = draw$pi, s = draw$s)
+                    sigma = sigma, rho0 = rho0, sigma0 = sigma0),
+       eta = draw$eta, g = draw$g, mu = draw$mu, pi = draw$pi, s = draw$s)
 }
 
-# One draw of (eta, s, y) given design matrices and parameters
+# One draw of (eta, g, s, y) given design matrices and parameters; the
+# inflation field g is drawn only when sigma0 > 0
 .rzisar_core <- function(X, Z, W, beta, gamma, rho, kappa, sigma,
-                         offset = 0) {
+                         offset = 0, rho0 = 0, sigma0 = 0) {
   n <- nrow(X)
   u <- rnorm(n, 0, sigma)
   A <- Matrix::Diagonal(n) - rho * W
   eta <- as.numeric(Matrix::solve(A, as.numeric(X %*% beta) + u))
   mu <- exp(eta + offset)
-  pi <- as.numeric(plogis(Z %*% gamma))
+  g <- if (sigma0 > 0) as.numeric(Matrix::solve(Matrix::Diagonal(n) - rho0 * W,
+                                                rnorm(n, 0, sigma0)))
+       else rep(0, n)
+  pi <- as.numeric(plogis(as.numeric(Z %*% gamma) + g))
   s <- rbinom(n, 1, pi)
   y_count <- rnbinom(n, size = kappa, mu = mu)
-  list(y = ifelse(s == 1, 0L, y_count), eta = eta, mu = mu, pi = pi, s = s)
+  list(y = ifelse(s == 1, 0L, y_count), eta = eta, g = g, mu = mu, pi = pi,
+       s = s)
 }

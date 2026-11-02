@@ -9,8 +9,12 @@ library(MASS)
 
 # Compile TMB template (only needed once per session)
 .zisar_compile <- function(cpp_file = "zisar_tmb.cpp") {
-  if (!file.exists(dynlib("zisar_tmb"))) {
-    compile(cpp_file)
+  if (!file.exists(dynlib("zisar_tmb")) ||
+      file.mtime(cpp_file) > file.mtime(dynlib("zisar_tmb"))) {
+    if (is.loaded("MakeADFunObject", PACKAGE = "zisar_tmb"))
+      dyn.unload(dynlib("zisar_tmb"))
+    # TMBad: needed for the AD sparse log-determinant (logdet = "sparse")
+    compile(cpp_file, framework = "TMBad")
   }
   dyn.load(dynlib("zisar_tmb"))
 }
@@ -25,13 +29,24 @@ library(MASS)
 #   W       - n x n spatial weights matrix (row-standardised, sparse or dense)
 #   control - list of nlminb() control parameters
 #   silent  - suppress TMB output
+#   logdet  - "eigen": log|I - rho*W| from the eigenvalues of W (dense, O(n^3)
+#             once); "sparse": from a sparse Cholesky factor of
+#             (I - rho*W)'(I - rho*W) at each evaluation; "auto": sparse
+#             when n > 5000
+#   fixed   - optional named list of parameter blocks held at given values,
+#             e.g. list(rho_raw = 0) for the aspatial ZINB-RE, or
+#             list(gamma = c(-20, rep(0, q - 1))) for SAR-NB-RE (pi ~ 0)
+#   init    - optional named list of starting values (beta, gamma, rho_raw,
+#             log_kappa, log_sigma, eta), e.g. from a previous fit
 #
 # Returns: S3 object of class "zisar"
 # -----------------------------------------------------------------------------
 zisar_fit <- function(y, X, Z, W,
                       control = list(eval.max = 1000, iter.max = 500,
                                      rel.tol = 1e-10),
-                      silent = TRUE) {
+                      silent = TRUE,
+                      logdet = c("auto", "eigen", "sparse"),
+                      fixed = NULL, init = NULL) {
 
   .zisar_compile()
 
@@ -39,11 +54,22 @@ zisar_fit <- function(y, X, Z, W,
   p <- ncol(X)
   q <- ncol(Z)
   W_sp <- as(as(W, "CsparseMatrix"), "TsparseMatrix")
+  logdet <- match.arg(logdet)
+  if (logdet == "auto") logdet <- if (n > 5000) "sparse" else "eigen"
 
-  # Pre-compute eigenvalues of W
-  eig <- eigen(as.matrix(W), only.values = TRUE)$values
-  eig_re <- Re(eig)
-  eig_im <- Im(eig)
+  if (logdet == "eigen") {
+    # Pre-compute eigenvalues of W
+    eig <- eigen(as.matrix(W), only.values = TRUE)$values
+    eig_re <- Re(eig)
+    eig_im <- Im(eig)
+    I_n <- WpWt <- WtW <- as(Matrix(0, 1, 1, sparse = TRUE), "TsparseMatrix")
+  } else {
+    eig_re <- eig_im <- numeric(0)
+    Wc   <- as(W, "CsparseMatrix")
+    I_n  <- as(Diagonal(n), "TsparseMatrix")
+    WpWt <- as(Wc + t(Wc), "TsparseMatrix")
+    WtW  <- as(crossprod(Wc), "TsparseMatrix")
+  }
 
   # TMB data
   data <- list(
@@ -52,7 +78,11 @@ zisar_fit <- function(y, X, Z, W,
     Z = as.matrix(Z),
     W = W_sp,
     eigenvalues_W_re = eig_re,
-    eigenvalues_W_im = eig_im
+    eigenvalues_W_im = eig_im,
+    logdet_sparse = as.integer(logdet == "sparse"),
+    I_n = I_n,
+    WpWt = WpWt,
+    WtW = WtW
   )
 
   # Starting values from aspatial ZINB (or simple fallback)
@@ -75,21 +105,26 @@ zisar_fit <- function(y, X, Z, W,
     log_sigma = log(0.5),
     eta       = as.numeric(X %*% init_beta)
   )
+  parameters[names(init)] <- init
+  parameters[names(fixed)] <- fixed
+  map <- lapply(fixed, function(v) factor(rep(NA, length(v))))
 
   # Build TMB objective
   obj <- MakeADFun(
     data       = data,
     parameters = parameters,
     random     = "eta",
+    map        = map,
     DLL        = "zisar_tmb",
     silent     = silent
   )
 
   # Parameter bounds: beta/gamma unbounded, rho_raw in [-4,4],
   # log_kappa in [log(0.01), log(500)], log_sigma in [log(0.001), log(10)]
-  n_fixed <- p + q + 3
-  lower <- c(rep(-Inf, p + q), -4, log(0.01), log(0.001))
-  upper <- c(rep( Inf, p + q),  4, log(500),  log(10))
+  block <- c(rep("beta", p), rep("gamma", q), "rho_raw", "log_kappa", "log_sigma")
+  free  <- !(block %in% names(fixed))
+  lower <- c(rep(-Inf, p + q), -4, log(0.01), log(0.001))[free]
+  upper <- c(rep( Inf, p + q),  4, log(500),  log(10))[free]
 
   # Optimise outer parameters
   opt <- nlminb(obj$par, obj$fn, obj$gr, lower = lower, upper = upper,
@@ -107,28 +142,27 @@ zisar_fit <- function(y, X, Z, W,
     }
   }
 
+  # Hessian of the Laplace objective (fixed effects), shared with sdreport
+  H_fixed <- tryCatch(optimHess(opt$par, obj$fn, obj$gr),
+                      error = function(e) NULL)
+
   # Standard errors via sdreport
-  sdr <- tryCatch(sdreport(obj), error = function(e) NULL)
+  sdr <- tryCatch(sdreport(obj, par.fixed = opt$par, hessian.fixed = H_fixed),
+                  error = function(e) NULL)
 
-  # Extract estimated parameters
+  # Extract estimated parameters (fixed blocks included)
   par_est <- opt$par
-  idx <- 1
-  beta_hat  <- par_est[idx:(idx + p - 1)]; idx <- idx + p
-  gamma_hat <- par_est[idx:(idx + q - 1)]; idx <- idx + q
-  rho_raw   <- par_est[idx]; idx <- idx + 1
-  log_kappa <- par_est[idx]; idx <- idx + 1
-  log_sigma <- par_est[idx]
+  pl <- obj$env$parList(opt$par)
+  beta_hat  <- pl$beta
+  gamma_hat <- pl$gamma
 
-  rho_hat   <- tanh(rho_raw)
-  kappa_hat <- exp(log_kappa)
-  sigma_hat <- exp(log_sigma)
+  rho_hat   <- tanh(pl$rho_raw)
+  kappa_hat <- exp(pl$log_kappa)
+  sigma_hat <- exp(pl$log_sigma)
 
   # Estimated latent field
-  eta_hat <- tryCatch({
-    re <- obj$env$last.par.best
-    n_fixed <- length(opt$par)
-    re[(n_fixed + 1):(n_fixed + n)]
-  }, error = function(e) as.numeric(X %*% beta_hat))
+  eta_hat <- tryCatch(as.numeric(obj$env$last.par.best[obj$env$random]),
+                      error = function(e) as.numeric(X %*% beta_hat))
 
   # Build coefficient table
   if (!is.null(sdr)) {
@@ -137,7 +171,7 @@ zisar_fit <- function(y, X, Z, W,
 
     par_names <- c(paste0("beta_", 0:(p-1)),
                    paste0("gamma_", 0:(q-1)),
-                   "rho_raw", "log_kappa", "log_sigma")
+                   "rho_raw", "log_kappa", "log_sigma")[free]
     coef_table <- data.frame(
       estimate = summ_fixed[, 1],
       se       = summ_fixed[, 2],
@@ -161,7 +195,7 @@ zisar_fit <- function(y, X, Z, W,
 
   # Variance-covariance of fixed effects
   vcov_mat <- tryCatch({
-    H <- optimHess(opt$par, obj$fn, obj$gr)
+    H <- H_fixed
     solve(H)
   }, error = function(e) matrix(NA, length(opt$par), length(opt$par)))
 
@@ -237,80 +271,116 @@ summary.zisar <- function(object, ...) {
 #
 # fit   - fitted zisar object
 # B     - number of simulation draws for SEs (0 = point estimates only)
+#
+# The effect of x_r on E[y] = (1 - pi) * exp(eta) is diag(d) S(rho) beta_r,
+# d = (1 - pi) * mu, so the averages need only diag(S) and S 1: no dense
+# n x n matrix is formed. A covariate that also enters Z (same column name
+# in X and Z) adds the diagonal inflation channel -diag(mu pi (1 - pi)) gamma_r.
+# The simulation draws keep the predicted random effects
+# u_hat = (I - rho W) eta_hat - X beta at their estimate.
 # -----------------------------------------------------------------------------
+
+# diag((I - rho W)^{-1}): dense for small n, sparse LU solves in blocks otherwise
+.sar_diag <- function(W, rho, block = 2000) {
+  n <- nrow(W)
+  A <- Diagonal(n) - rho * W
+  if (n <= 3000) return(diag(solve(as.matrix(A))))
+  luA <- lu(A)
+  out <- numeric(n)
+  for (s in seq(1, n, by = block)) {
+    j <- s:min(n, s + block - 1)
+    E <- matrix(0, n, length(j))
+    E[cbind(j, seq_along(j))] <- 1
+    Sj <- solve(luA, E)
+    out[j] <- Sj[cbind(j, seq_along(j))]
+  }
+  out
+}
+
 zisar_effects <- function(fit, B = 500) {
   n <- fit$n
   p <- fit$p
-  W <- fit$W
+  W <- as(fit$W, "CsparseMatrix")
   rho <- fit$params$rho
   beta <- fit$params$beta
   gamma <- fit$params$gamma
   eta_hat <- fit$eta_hat
-
-  # Spatial multiplier S(rho) = (I - rho*W)^{-1}
   I_n <- Diagonal(n)
-  A <- I_n - rho * W
-  S_rho <- solve(A)
 
   # Fitted values at the mode
   mu_hat <- exp(eta_hat)
   pi_hat <- 1 / (1 + exp(-as.numeric(fit$Z %*% gamma)))
+  d_vec  <- (1 - pi_hat) * mu_hat
 
-  # D = diag((1 - pi) * mu)
-  d_vec <- (1 - pi_hat) * mu_hat
+  # Spatial multiplier S(rho) = (I - rho*W)^{-1}: diagonal and row sums
+  s_ii <- .sar_diag(W, rho)
+  s_1  <- as.numeric(solve(I_n - rho * W, rep(1, n)))
 
+  # Position in Z of each X covariate entering both processes (NA otherwise)
+  xn <- colnames(fit$X); zn <- colnames(fit$Z)
+  in_z <- if (is.null(xn) || is.null(zn)) rep(NA_integer_, p) else match(xn, zn)
+  in_z[seq_len(p) == 1] <- NA_integer_          # intercepts
+  g_x <- function(g) ifelse(is.na(in_z), 0, g[in_z])
+
+  zch <- mu_hat * pi_hat * (1 - pi_hat)         # d E[y] / d (z'gamma), negated
   effects <- list()
   for (r in seq_len(p)) {
-    M_r <- Diagonal(x = d_vec) %*% S_rho * beta[r]
-    M_dense <- as.matrix(M_r)
-
-    direct_i   <- diag(M_dense)
-    total_i    <- rowSums(M_dense)
-    indirect_i <- total_i - direct_i
-
+    zero_i   <- -zch * g_x(gamma)[r]
+    direct_i <- d_vec * s_ii * beta[r] + zero_i
+    total_i  <- d_vec * s_1 * beta[r] + zero_i
     effects[[r]] <- list(
       covariate    = r,
+      name         = if (is.null(xn)) NULL else xn[r],
       avg_direct   = mean(direct_i),
-      avg_indirect = mean(indirect_i),
-      avg_total    = mean(total_i)
+      avg_indirect = mean(total_i - direct_i),
+      avg_total    = mean(total_i),
+      avg_zero     = mean(zero_i)
     )
   }
 
   # Simulation-based SEs
   if (B > 0 && all(is.finite(fit$vcov))) {
-    n_par <- length(fit$coefficients)
-    sim_effects <- array(0, dim = c(B, p, 3))
-
+    sim_effects <- array(NA_real_, dim = c(B, p, 3))
     theta_draws <- MASS::mvrnorm(B, fit$coefficients, fit$vcov)
+    u_hat <- as.numeric((I_n - rho * W) %*% eta_hat - fit$X %*% beta)
+
+    idx_rho <- p + fit$q + 1
+    rho_draws <- tanh(theta_draws[, idx_rho])
+
+    # diag(S) along the draws: exact at Chebyshev nodes spanning the draws,
+    # Lagrange interpolation in between (S_ii is smooth in rho)
+    if (n > 3000) {
+      a <- min(rho_draws); b <- max(rho_draws)
+      nodes <- (a + b) / 2 + (b - a) / 2 * cos((2 * (1:7) - 1) * pi / 14)
+      s_nodes <- sapply(nodes, function(r0) .sar_diag(W, r0))
+      lagrange <- function(x) sapply(seq_along(nodes), function(k)
+        prod((x - nodes[-k]) / (nodes[k] - nodes[-k])))
+      s_ii_at <- function(r0) as.numeric(s_nodes %*% lagrange(r0))
+    } else {
+      s_ii_at <- function(r0) .sar_diag(W, r0)
+    }
 
     for (b in seq_len(B)) {
-      tryCatch({
-        idx <- 1
-        beta_b  <- theta_draws[b, idx:(idx + p - 1)]; idx <- idx + p
-        gamma_b <- theta_draws[b, idx:(idx + fit$q - 1)]; idx <- idx + fit$q
-        rho_b   <- tanh(theta_draws[b, idx]); idx <- idx + 1
-        # log_kappa and log_sigma not needed for effects
+      beta_b  <- theta_draws[b, 1:p]
+      gamma_b <- theta_draws[b, p + seq_len(fit$q)]
+      rho_b   <- rho_draws[b]
+      if (abs(rho_b) >= 1) next
 
-        if (abs(rho_b) >= 1) next
+      A_b   <- I_n - rho_b * W
+      eta_b <- as.numeric(solve(A_b, fit$X %*% beta_b + u_hat))
+      pi_b  <- 1 / (1 + exp(-as.numeric(fit$Z %*% gamma_b)))
+      d_b   <- (1 - pi_b) * exp(eta_b)
+      dS_b  <- mean(d_b * s_ii_at(rho_b))
+      dT_b  <- mean(d_b * as.numeric(solve(A_b, rep(1, n))))
+      zero_b <- -mean(exp(eta_b) * pi_b * (1 - pi_b)) * g_x(gamma_b)
 
-        S_b <- solve(I_n - rho_b * W)
-        # Approximate eta with new beta and rho
-        eta_b <- as.numeric(S_b %*% (fit$X %*% beta_b))
-        mu_b  <- exp(eta_b)
-        pi_b  <- 1 / (1 + exp(-as.numeric(fit$Z %*% gamma_b)))
-        d_b   <- (1 - pi_b) * mu_b
-
-        for (r in seq_len(p)) {
-          M_b <- as.matrix(Diagonal(x = d_b) %*% S_b * beta_b[r])
-          sim_effects[b, r, 1] <- mean(diag(M_b))
-          sim_effects[b, r, 3] <- mean(rowSums(M_b))
-          sim_effects[b, r, 2] <- sim_effects[b, r, 3] - sim_effects[b, r, 1]
-        }
-      }, error = function(e) NULL)
+      sim_effects[b, , 1] <- beta_b * dS_b + zero_b
+      sim_effects[b, , 3] <- beta_b * dT_b + zero_b
+      sim_effects[b, , 2] <- beta_b * (dT_b - dS_b)
     }
 
     for (r in seq_len(p)) {
-      valid <- sim_effects[, r, 1] != 0
+      valid <- is.finite(sim_effects[, r, 1])
       if (sum(valid) > 10) {
         effects[[r]]$se_direct   <- sd(sim_effects[valid, r, 1])
         effects[[r]]$se_indirect <- sd(sim_effects[valid, r, 2])
@@ -330,7 +400,8 @@ print.zisar_effects <- function(x, ...) {
   cat(paste(rep("-", 65), collapse = ""), "\n")
   for (r in seq_along(x)) {
     eff <- x[[r]]
-    cat(sprintf("Covariate %d:\n", eff$covariate))
+    cat(sprintf("Covariate %d%s:\n", eff$covariate,
+                if (is.null(eff$name)) "" else paste0(" (", eff$name, ")")))
     cat(sprintf("  Direct:   %8.4f", eff$avg_direct))
     if (!is.null(eff$se_direct)) cat(sprintf("  (SE: %.4f)", eff$se_direct))
     cat("\n")

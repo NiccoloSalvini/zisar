@@ -20,7 +20,7 @@ The Laplace approximation to the marginal likelihood replaces the integral by it
 where $\hat{\boldsymbol{\eta}}(\btheta) = \arg\min_{\boldsymbol{\eta}} f(\boldsymbol{\eta};\,\btheta)$ is the conditional mode and $\mathbf{H} = \nabla^2_{\boldsymbol{\eta}} f\,\big|_{\hat{\boldsymbol{\eta}}}$ is the Hessian of $f$ with respect to $\boldsymbol{\eta}$.
 
 The inner optimisation (finding $\hat{\boldsymbol{\eta}}$) is a weighted least-squares problem in the latent field and is solved by Newton--Raphson iteration.
-The outer optimisation (maximising $\ell_{\mathrm{LA}}$ over $\btheta$) is carried out by quasi-Newton (L-BFGS-B), with gradients computed by automatic differentiation (AD) through both the inner and outer problems.
+The outer optimisation (maximising $\ell_{\mathrm{LA}}$ over $\btheta$) is carried out by a box-constrained quasi-Newton method (\texttt{nlminb}), with gradients computed by automatic differentiation (AD) through both the inner and outer problems.
 
 \paragraph{Exploiting sparsity.}
 The Hessian $\mathbf{H}$ inherits the sparsity pattern of $\bW$: the SAR prior contributes $\sigma^{-2}(\mathbf{I}_n - \rho\bW)'(\mathbf{I}_n - \rho\bW)$, which is sparse, and the observation model contributes a diagonal term $\diag(d_1,\ldots,d_n)$ (since the data are conditionally independent given $\boldsymbol{\eta}$).
@@ -36,6 +36,13 @@ Pre-computing the eigenvalues $\lambda_1,\ldots,\lambda_n$ of $\bW$ (a one-time 
 \end{equation}
 For row-standardised $\bW$, $\lambda_1 = 1$ and $\lambda_n \geq -1$, so $\rho \in (-1,1)$ ensures non-singularity.
 We enforce this via the reparametrisation $\rho = \tanh(\tilde{\rho})$.
+When $n$ is large the dense eigendecomposition becomes the bottleneck (it requires $O(n^2)$ memory as well as $O(n^3)$ time), and we use instead
+\begin{equation}\label{eq:logdet_sparse}
+  \log|\det(\mathbf{I}_n - \rho\bW)| = \tfrac12\log\det\bigl[\mathbf{I}_n - \rho(\bW+\bW') + \rho^2\bW'\bW\bigr],
+\end{equation}
+whose argument, $(\mathbf{I}_n-\rho\bW)'(\mathbf{I}_n-\rho\bW)$, is sparse, symmetric and positive definite whenever $\mathbf{I}_n-\rho\bW$ is non-singular.
+Its log-determinant is obtained from a sparse Cholesky factorisation at each evaluation of the objective and differentiated with respect to $\rho$ by \texttt{TMB}'s atomic sparse log-determinant, so that no $n\times n$ dense matrix is ever formed.
+The two routes give identical estimates and standard errors; the sparse one is used in the application of Section~\ref{sec:application}, where $n = 32{,}844$.
 
 % ---------------------------------------------------------------------------
 \subsection{Estimation algorithm}\label{sec:est_algorithm}
@@ -47,22 +54,22 @@ Algorithm~\ref{alg:zisar} summarises the full procedure, implemented in \texttt{
 \begin{algorithmic}[1]
 \Require Data $(\by, \bX, \bZ, \bW)$; eigenvalues $\lambda_1,\ldots,\lambda_n$ of $\bW$; convergence tolerance $\epsilon$.
 \Ensure Parameter estimates $\hat{\btheta}$, standard errors, marginal log-likelihood.
-\State \textbf{Pre-compute:} Eigenvalues of $\bW$; sparse Cholesky ordering for $(\mathbf{I}-\rho\bW)'(\mathbf{I}-\rho\bW)$.
-\State \textbf{Initialise:} $\btheta^{(0)}$ from a standard ZINB fit ($\rho=0$, $\sigma^2=0$); $\boldsymbol{\eta}^{(0)} = \bX\hat{\bbeta}_{\mathrm{ZINB}}$.
+\State \textbf{Pre-compute:} Eigenvalues of $\bW$ (for large $n$, the sparse matrices $\bW+\bW'$ and $\bW'\bW$ of \eqref{eq:logdet_sparse} instead); sparse Cholesky ordering for $(\mathbf{I}-\rho\bW)'(\mathbf{I}-\rho\bW)$.
+\State \textbf{Initialise:} $\bbeta^{(0)}$ from an aspatial Poisson GLM; $\bgamma^{(0)} = (\logit(\bar{p}_0), 0, \ldots, 0)'$ with $\bar{p}_0$ the observed share of zeros; $\rho^{(0)}=0$, $\kappa^{(0)}=1$, $\sigma^{(0)}=0.5$; $\boldsymbol{\eta}^{(0)} = \bX\bbeta^{(0)}$.
 \State \textbf{Construct TMB objective:} Define $f(\boldsymbol{\eta};\,\btheta)$ as the negative joint log-density \eqref{eq:neg_joint}, with $\boldsymbol{\eta}$ declared as random effects.
 \Repeat
   \State \textbf{Inner loop:} Find $\hat{\boldsymbol{\eta}}(\btheta^{(s)}) = \arg\min_{\boldsymbol{\eta}} f(\boldsymbol{\eta};\,\btheta^{(s)})$ via Newton--Raphson with sparse Cholesky.
   \State \textbf{Laplace:} Evaluate $\ell_{\mathrm{LA}}(\btheta^{(s)})$ and $\nabla_{\btheta}\ell_{\mathrm{LA}}(\btheta^{(s)})$ by automatic differentiation.
-  \State \textbf{Outer step:} Update $\btheta^{(s+1)}$ via L-BFGS-B.
+  \State \textbf{Outer step:} Update $\btheta^{(s+1)}$ by a box-constrained quasi-Newton step (PORT routine \texttt{nlminb}).
 \Until{$\|\btheta^{(s+1)} - \btheta^{(s)}\| < \epsilon$}
 \State $\hat{\btheta} \leftarrow \btheta^{(s+1)}$, $\hat{\boldsymbol{\eta}} \leftarrow \hat{\boldsymbol{\eta}}(\hat{\btheta})$.
-\State Compute the Hessian of $-\ell_{\mathrm{LA}}$ w.r.t.\ $\btheta$ by AD; invert for the variance--covariance matrix $\hat{\mathbf{V}}$.
+\State Compute the Hessian of $-\ell_{\mathrm{LA}}$ w.r.t.\ $\btheta$ by differentiating the AD gradient; invert for the variance--covariance matrix $\hat{\mathbf{V}}$.
 \State \Return $\hat{\btheta}$, $\sqrt{\diag(\hat{\mathbf{V}})}$, $\ell_{\mathrm{LA}}(\hat{\btheta})$.
 \end{algorithmic}
 \end{algorithm}
 
 \paragraph{Practical details.}
-The reparametrisation $\rho = \tanh(\tilde{\rho})$, $\kappa = \exp(\tilde{\kappa})$, and $\sigma = \exp(\tilde{\sigma})$ maps the constrained parameter space to $\mathbb{R}^{\dim(\btheta)}$, ensuring unconstrained optimisation.
+The reparametrisation $\rho = \tanh(\tilde{\rho})$, $\kappa = \exp(\tilde{\kappa})$, and $\sigma = \exp(\tilde{\sigma})$ maps the constrained parameter space to $\mathbb{R}^{\dim(\btheta)}$. For numerical stability the optimiser nonetheless works within wide box constraints, $\tilde\rho\in[-4,4]$ ($|\rho|\le0.9993$), $\kappa\in[0.01,500]$ and $\sigma\in[0.001,10]$, and is restarted from up to three perturbed starting points if it fails to converge; fits ending at the upper bound for $\kappa$ are flagged (Section~\ref{sec:montecarlo}).
 Standard errors on the original scale are obtained via the delta method (handled automatically by \texttt{TMB}'s \texttt{sdreport()}).
 
 % ---------------------------------------------------------------------------
@@ -84,7 +91,7 @@ Under Assumptions~\ref{ass:W}--\ref{ass:identification} and standard smoothness 
 \[
   \sqrt{n}\,(\hat{\btheta}_n - \btheta_0) \dlim N\!\bigl(\mathbf{0},\,\mathcal{I}(\btheta_0)^{-1}\bigr),
 \]
-where $\mathcal{I}(\btheta_0) = -\lim_{n\to\infty} n^{-1}\nabla^2_\btheta\ell(\btheta_0)$ is the Fisher information per observation.
+where $\mathcal{I}(\btheta_0) = -\lim_{n\to\infty} n^{-1}\nabla^2_{\btheta}\ell(\btheta_0)$ is the Fisher information per observation.
 \end{proposition}
 
 \begin{proof}[Proof sketch]

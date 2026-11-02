@@ -1,7 +1,7 @@
 \section{Introduction}\label{sec:introduction}
 
 Count data exhibiting both spatial dependence and an excess of zeros are pervasive in the applied sciences.
-Emergency-department admissions across municipalities, firm start-up counts by county, patent citations at the regional level, and disease incidence in small areas all share a common statistical signature: many spatial units record a zero outcome, the non-zero counts display overdispersion relative to the Poisson, and neighbouring units tend to report similar values.
+Emergency-department admissions across municipalities, rooftop solar installations across neighbourhoods, firm start-up counts by county, patent citations at the regional level, and disease incidence in small areas all share a common statistical signature: many spatial units record a zero outcome, the non-zero counts display overdispersion relative to the Poisson, and neighbouring units tend to report similar values.
 Despite the empirical ubiquity of this data structure, the econometric literature has addressed its three defining features---spatial spillovers, zero-inflation, and overdispersion---largely in isolation or in pairwise combinations, leaving a methodological gap that this paper aims to fill.
 
 In the spatial econometrics tradition initiated by \citet{anselin1988} and surveyed comprehensively by \citet{lesage_pace2009} and \citet{arbia2006,arbia2024}, the workhorse specification for modelling cross-sectional dependence is the spatial autoregressive (SAR) model $\by = \rho\bW\by + \bX\bbeta + \varepsilon$, where $\bW$ is a row-standardised spatial weights matrix and $\rho$ captures endogenous interaction effects among neighbouring units.
@@ -32,14 +32,14 @@ Our contributions are fourfold:
         We maximise the Laplace-approximated marginal likelihood via Template Model Builder \citep[\texttt{TMB};][]{kristensen2016}, which exploits automatic differentiation and sparse-matrix algebra to scale to $n = O(10^4)$.
         This estimation strategy shares the scalability concerns of \citet{arbia_nardelli2024} while delivering exact (up to the Laplace order) marginal inference.
   \item \textbf{Theory.}\; We establish the consistency and asymptotic normality of the Laplace-approximate MLE under regularity conditions analogous to those in \citet{lee2004} and \citet{newey_mcfadden1994}, and derive closed-form expressions for direct, indirect, and total marginal effects that account for both the zero-inflation mixture and the spatial multiplier, adapting the \citet{lesage_pace2009} framework to the nonlinear ZINB setting.
-  \item \textbf{Implementation and application.}\; We provide an open-source \texttt{TMB} template and \texttt{R} functions (\texttt{zisar\_fit}, \texttt{zisar\_effects}, \texttt{zisar\_predict}) and demonstrate the model on both simulated data and an empirical application to emergency-department visit counts across Italian municipalities.
+  \item \textbf{Implementation and application.}\; We provide an open-source \texttt{TMB} template and \texttt{R} functions (\texttt{zisar\_fit}, \texttt{zisar\_effects}, \texttt{zisar\_predict}) and demonstrate the model on a Monte~Carlo study and on an application to domestic solar photovoltaic (PV) adoption across the $32{,}322$ small areas of England, where the sparse log-determinant of Section~\ref{sec:est_laplace} makes the full-scale fit feasible.
 \end{enumerate}
 
 The remainder of the paper is organised as follows.
 Section~\ref{sec:literature} surveys the existing literature on spatial count models, zero-inflated spatial specifications, and spatial filtering approaches.
 Section~\ref{sec:model} introduces the ZISAR model and states its key properties.
 Section~\ref{sec:estimation} details the Laplace-approximate ML procedure and derives the asymptotic results and effects decomposition.
-Section~\ref{sec:montecarlo} reports a Monte~Carlo study comparing ZISAR with competing specifications.
-Section~\ref{sec:application} presents the empirical application.
+Section~\ref{sec:montecarlo} reports a Monte~Carlo study comparing ZISAR with competing specifications and the power of tests for spatial dependence.
+Section~\ref{sec:application} applies the model to the adoption of domestic solar PV in England after the 2016 reform of the Feed-in Tariff.
 Section~\ref{sec:conclusion} concludes and discusses extensions, including the incorporation of temporal dependence.
 Proofs and supplementary tables are collected in the Appendix.

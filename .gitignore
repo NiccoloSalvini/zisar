@@ -19,3 +19,8 @@ data/*.rds
 
 # macOS
 .DS_Store
+
+# Solar PV application: downloaded sources (re-created by notebooks/solar_data.r)
+data/solar/raw/
+data/solar/*.rds
+notebooks/solar_results.rds

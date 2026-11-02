@@ -19,6 +19,12 @@ Type objective_function<Type>::operator() ()
   DATA_SPARSE_MATRIX(W);
   DATA_VECTOR(eigenvalues_W_re);
   DATA_VECTOR(eigenvalues_W_im);
+  // Large n: log-determinant from a sparse Cholesky factor instead of the
+  // eigenvalues (logdet_sparse = 1). I_n, WpWt = W + W', WtW = W'W.
+  DATA_INTEGER(logdet_sparse);
+  DATA_SPARSE_MATRIX(I_n);
+  DATA_SPARSE_MATRIX(WpWt);
+  DATA_SPARSE_MATRIX(WtW);
 
   // ---- PARAMETERS (fixed) ----
   PARAMETER_VECTOR(beta);
@@ -49,12 +55,18 @@ Type objective_function<Type>::operator() ()
 
   // Log-determinant
   Type log_det = Type(0.0);
-  for (int i = 0; i < n; i++) {
-    Type re = eigenvalues_W_re(i);
-    Type im = eigenvalues_W_im(i);
-    Type mod_sq = (Type(1.0) - rho * re) * (Type(1.0) - rho * re) +
-                  (rho * im) * (rho * im);
-    log_det += Type(0.5) * log(mod_sq + Type(1e-30));
+  if (logdet_sparse == 1) {
+    // log|det(I - rho*W)| = 0.5 * log det[(I - rho*W)'(I - rho*W)]
+    Eigen::SparseMatrix<Type> Q = I_n - rho * WpWt + rho * rho * WtW;
+    log_det = Type(0.5) * newton::log_determinant(Q);
+  } else {
+    for (int i = 0; i < n; i++) {
+      Type re = eigenvalues_W_re(i);
+      Type im = eigenvalues_W_im(i);
+      Type mod_sq = (Type(1.0) - rho * re) * (Type(1.0) - rho * re) +
+                    (rho * im) * (rho * im);
+      log_det += Type(0.5) * log(mod_sq + Type(1e-30));
+    }
   }
 
   // Residual: r = (I - rho*W)*eta - X*beta
@@ -63,6 +75,7 @@ Type objective_function<Type>::operator() ()
   vector<Type> r_vec = eta - rho * W_eta - Xbeta;
 
   // Prior contribution to nll (negative log-prior, up to constant)
+  nll += Type(0.5) * Type(n) * log(Type(2.0) * Type(M_PI));  // n/2 * log(2*pi): needed for a correct logLik/AIC
   nll += Type(n) * log_sigma;  // n * log(sigma)
   nll -= log_det;
   nll += Type(0.5) / sigma2 * (r_vec * r_vec).sum();

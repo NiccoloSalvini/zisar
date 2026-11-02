@@ -39,7 +39,7 @@ The standard spatial-statistical remedy is to augment the linear predictor with 
 In the disease-mapping literature, \citet{asmarian2019} combined zero-inflated specifications with BYM (Besag--York--Molli\'{e}) random effects and estimated the resulting model through integrated nested Laplace approximations (INLA) \citep{rue_martino_chopin2009}, demonstrating good performance on Iranian cancer-registry data.
 \citet{he2024} pushed this line further by replacing the discrete CAR specification with a nearest-neighbour Gaussian process (NNGP), achieving scalability to tens of thousands of spatial locations within a Bayesian ZINB framework.
 
-\citet{neelon2013} developed a spatial Poisson hurdle model for emergency-department visit data---an application closely related to ours---with bivariate CAR priors linking the hurdle and count components.
+\citet{neelon2013} developed a spatial Poisson hurdle model for emergency-department visit data, with bivariate CAR priors linking the hurdle and count components.
 Their model, published in this journal, demonstrated that ignoring spatial structure in the analysis of ED utilisation leads to attenuated covariate effects and misleading maps of geographic variation.
 
 While these Bayesian spatial ZI models are flexible and increasingly scalable, they differ from the ZISAR approach in a fundamental way: the spatial dependence operates through latent random effects rather than through the observed outcome $\by$.

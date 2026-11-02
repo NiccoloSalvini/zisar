@@ -9,15 +9,20 @@ Estimation by Laplace-approximated marginal likelihood, implemented via \texttt{
 The sparse-matrix operations and automatic differentiation exploited by \texttt{TMB} echo the computational concerns raised by \citet{arbia_nardelli2024} and \citet{arbia_nardelli_salvini} in the context of pairwise pseudo-likelihood for large spatial datasets.
 We established consistency and asymptotic normality of the estimator and derived the effects decomposition for the nonlinear zero-inflated mixture.
 
-The Monte~Carlo study confirmed that ignoring either spatial dependence or zero-inflation leads to substantial bias: the standard ZINB inflates covariate effects when $\rho > 0$, while the SAR-NB overestimates the spatial lag when structural zeros are present.
-ZISAR recovers the data-generating parameters with low bias and near-nominal coverage.
-The empirical application to emergency-department visits across Italian municipalities demonstrated significant spatial spillovers and indirect effects that aspatial models entirely miss.
+The Monte~Carlo study confirmed that ignoring either spatial dependence or zero-inflation leads to substantial bias: the standard ZINB inflates covariate effects when $\rho > 0$, while the SAR-NB severely underestimates the spatial lag when structural zeros are present, with a bias that does not vanish as $n$ grows.
+ZISAR recovers the data-generating parameters with low bias and an RMSE that decreases with $n$.
+A second experiment showed that residual-based Moran tests can miss spatial dependence that the likelihood detects.
+
+The application to domestic solar PV adoption in England after the 2016 reform of the Feed-in Tariff took the estimator to $n = 32{,}322$ small areas, where a fit takes about three minutes.
+ZISAR found strong spatial dependence in the latent propensity to adopt ($\hat\rho = 0.63$), attributed about one tenth of the 10{,}442 zeros to a structural regime confined to flat-dominated urban cores---a classification that agrees with the areas' adoption history before the reform, which the model does not use---and dominated every competitor in AIC and BIC.
+It also showed what is lost by ignoring space: the aspatial models credit social renting and the elderly population with effects that disappear once the spatial clustering of adoption is modelled.
+The application also brought out a practical point for zero-inflated models of administrative counts: a mismatch between the geography of the register and that of the covariates creates artificial zeros, which must be removed before the zero process can be interpreted.
 
 \paragraph{Limitations.}
 Three limitations warrant acknowledgement.
 First, the Laplace approximation may lose accuracy when the conditional posterior of $\boldsymbol{\eta}$ is highly non-Gaussian (e.g.\ for very sparse data with many zero counts); higher-order Laplace corrections or adaptive quadrature could improve precision in such settings.
 Second, the unit-level random effects $\bu$ are assumed independent Gaussian; correlated or non-Gaussian specifications would add flexibility at the cost of a more complex \texttt{TMB} template.
-Third, the eigenvalue pre-computation for the log-determinant $\log|\det(\mathbf{I}-\rho\bW)|$ is $O(n^3)$ and may become a bottleneck for very large $n$; stochastic log-determinant approximations \citep[e.g.][]{barry_pace1999} could be substituted.
+Third, the eigenvalue pre-computation for the log-determinant $\log|\det(\mathbf{I}-\rho\bW)|$ is $O(n^3)$; the sparse-Cholesky alternative of \eqref{eq:logdet_sparse} removes this bottleneck at the national scale of the application, but its cost grows with the fill-in of the Cholesky factor, so that for dense weights matrices or $n$ in the millions stochastic log-determinant approximations \citep[e.g.][]{barry_pace1999} would be needed.
 
 \paragraph{Extensions.}
 Several directions for future research emerge naturally.

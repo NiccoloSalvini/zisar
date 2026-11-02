@@ -19,7 +19,7 @@ Description: Fits the zero-inflated spatial autoregressive (ZISAR) model for
     indirect and total marginal effects, counterfactual prediction,
     residuals and simulation from the model.
 License: GPL (>= 3)
-URL: https://niccolosalvini.github.io/zisar/, https://github.com/NiccoloSalvini/zisar
+URL: https://www.niccolosalvini.me/packages/zisar/, https://github.com/NiccoloSalvini/zisar
 BugReports: https://github.com/NiccoloSalvini/zisar/issues
 Depends:
     R (>= 4.1.0)

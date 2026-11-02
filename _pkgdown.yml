@@ -1,0 +1,22 @@
+url: ~
+template:
+  bootstrap: 5
+
+reference:
+  - title: Fitting
+    contents:
+      - zisar
+      - zisar_effects
+  - title: Methods for fitted models
+    contents:
+      - zisar-methods
+      - predict.zisar
+      - residuals.zisar
+      - simulate.zisar
+  - title: Simulation and spatial weights
+    contents:
+      - rzisar
+      - lattice_weights
+  - title: Package
+    contents:
+      - zisar-package

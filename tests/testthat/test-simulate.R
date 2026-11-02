@@ -1,0 +1,30 @@
+test_that("rzisar() returns data ready for zisar()", {
+  set.seed(1)
+  sim <- rzisar(10, beta = c(1, 0.5, -0.3), rho = 0.4, gamma = c(-1, 0.8))
+  expect_named(sim$data, c("y", "x1", "x2", "z1"))
+  expect_equal(nrow(sim$data), 100)
+  expect_equal(dim(sim$W), c(100, 100))
+  expect_equal(nrow(sim$coords), 100)
+  expect_true(all(sim$data$y >= 0))
+  expect_true(all(sim$data$y[sim$s == 1] == 0))
+  expect_equal(sim$truth$rho, 0.4)
+})
+
+test_that("rzisar() reproduces the latent field it reports", {
+  set.seed(2)
+  sim <- rzisar(8, beta = c(0.5, 1), rho = 0.6, gamma = -2, sigma = 0)
+  X <- cbind(1, sim$data$x1)
+  A <- diag(64) - 0.6 * as.matrix(sim$W)
+  expect_equal(sim$eta, as.numeric(solve(A, X %*% c(0.5, 1))))
+  expect_equal(sim$mu, exp(sim$eta))
+  expect_equal(sim$pi, rep(plogis(-2), 64))
+})
+
+test_that("rzisar() accepts a user weights matrix", {
+  set.seed(3)
+  W <- lattice_weights(5, 6, type = "rook")
+  sim <- rzisar(beta = 1, rho = 0.2, gamma = -1, W = W)
+  expect_equal(nrow(sim$data), 30)
+  expect_null(sim$coords)
+  expect_named(sim$data, "y")
+})

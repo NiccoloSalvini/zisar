@@ -1,0 +1,108 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# zisar
+
+<!-- badges: start -->
+
+[![R-CMD-check](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
+**zisar** fits the zero-inflated spatial autoregressive (ZISAR) model
+for spatial count data with excess zeros. A simultaneous autoregressive
+process on the latent log-mean of a zero-inflated negative binomial
+model carries spatial spillovers, and unit-level random effects absorb
+residual heterogeneity:
+
+$$
+\eta = (I - \rho W)^{-1}(X\beta + u), \qquad
+y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(e^{\eta_i}, \kappa),
+\qquad \mathrm{logit}(\pi_i) = z_i'\gamma .
+$$
+
+Parameters are estimated by maximising the Laplace approximation to the
+marginal likelihood with [TMB](https://cran.r-project.org/package=TMB),
+whose automatic differentiation and sparse matrix algebra make tens of
+thousands of spatial units feasible.
+
+## Installation
+
+Install the development version from GitHub:
+
+``` r
+# install.packages("pak")
+pak::pak("NiccoloSalvini/zisar")
+```
+
+The package compiles C++ code, so it needs a compiler: Rtools on
+Windows, the Xcode command line tools on macOS.
+
+## Example
+
+``` r
+library(zisar)
+
+# 400 units on a lattice, with spatial dependence rho = 0.5
+set.seed(2026)
+sim <- rzisar(20, beta = c(0.5, 0.6, -0.4), rho = 0.5, gamma = c(-1, 0.9))
+
+# Count terms before |, zero-inflation terms after it
+fit <- zisar(y ~ x1 + x2 | z1, data = sim$data, W = sim$W)
+summary(fit)
+#> 
+#> Call:
+#> zisar(formula = y ~ x1 + x2 | z1, data = sim$data, W = sim$W)
+#> 
+#> 400 spatial units, 45.5% zeros
+#> 
+#> Count model coefficients (SAR negative binomial, log link):
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> (Intercept)   0.3748     0.1071    3.50  0.00047 ***
+#> x1            0.5477     0.0778    7.04  1.9e-12 ***
+#> x2           -0.4210     0.0699   -6.02  1.7e-09 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Zero-inflation model coefficients (binomial, logit link):
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> (Intercept)   -1.057      0.314   -3.37  0.00076 ***
+#> z1             0.894      0.251    3.57  0.00036 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Spatial and dispersion parameters:
+#>       Estimate Std. Error z value Pr(>|z|)    
+#> rho      0.599      0.110    5.44  5.2e-08 ***
+#> kappa    2.509      1.838                     
+#> sigma    0.479      0.161                     
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Log-likelihood (Laplace): -755.61 on 8 Df
+#> AIC: 1527.2   BIC: 1559.1
+#> Log-determinant: eigen.  Optimiser: converged after 30 iterations.
+```
+
+In a spatial model a coefficient is not the effect of its covariate:
+`zisar_effects()` splits it into the effect on the unit itself (direct)
+and the spillover on the other units (indirect).
+
+``` r
+zisar_effects(fit, B = 100)
+#> ZISAR average effects on E[y] (simulation SEs, B = 100)
+#> 
+#>              Direct         Indirect            Total
+#> x1  1.4169 (0.2733)  1.8708 (0.9395)  3.2877 (1.1047)
+#> x2 -1.0890 (0.2309) -1.4378 (0.7398) -2.5268 (0.8952)
+#> z1 -0.5302 (0.1107)  0.0000 (0.0000) -0.5302 (0.1107)
+```
+
+`vignette("zisar")` covers the model, spatial weights from real
+geography, counterfactual predictions, model comparison and large data
+sets.
+
+## Citation
+
+Salvini N, Arbia G, Nardelli V (2026). “ZISAR: A Zero-Inflated Spatial
+Autoregressive Model for Count Data with Random Effects.” Working paper,
+Università Cattolica del Sacro Cuore.

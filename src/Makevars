@@ -1,0 +1,2 @@
+# TMBad framework: needed for the AD sparse log-determinant (logdet = "sparse")
+PKG_CPPFLAGS = -DTMBAD_FRAMEWORK

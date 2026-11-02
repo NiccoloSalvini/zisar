@@ -1,0 +1,22 @@
+bibentry(
+  bibtype = "Unpublished",
+  title = "{ZISAR}: A Zero-Inflated Spatial Autoregressive Model for Count Data with Random Effects",
+  author = c(person("Niccolò", "Salvini"),
+             person("Giuseppe", "Arbia"),
+             person("Vincenzo", "Nardelli")),
+  year = "2026",
+  note = "Working paper, Università Cattolica del Sacro Cuore",
+  header = "To cite the ZISAR model in publications use:"
+)
+
+bibentry(
+  bibtype = "Manual",
+  title = "{zisar}: Zero-Inflated Spatial Autoregressive Models for Count Data",
+  author = c(person("Niccolò", "Salvini"),
+             person("Giuseppe", "Arbia"),
+             person("Vincenzo", "Nardelli")),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://github.com/NiccoloSalvini/zisar",
+  header = "To cite the package use:"
+)

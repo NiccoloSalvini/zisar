@@ -43,3 +43,6 @@ notebooks/crime_results.rds
 notebooks/crime_fits.rds
 notebooks/crime_application*.log
 data/*/*.log
+
+# Stray R graphics device output
+Rplots.pdf

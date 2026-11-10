@@ -266,7 +266,7 @@ TMB (Template Model Builder) \`e un pacchetto R/C++ che implementa tutto questo 
 \begin{enumerate}
   \item Si scrive un template C++ che definisce la negative log-joint $f(\boldsymbol{\eta}; \boldsymbol{\theta})$.
   \item TMB calcola gradienti e Hessiani tramite \textbf{automatic differentiation} (AD): non approssimazioni finite, ma derivate esatte al costo di una singola valutazione.
-  \item Si dichiara $\boldsymbol{\eta}$ come ``random effect'': TMB fa automaticamente l'inner loop (Newton per trovare $\hat{\boldsymbol{\eta}}$) e l'outer loop (L-BFGS-B per massimizzare la Laplace approssimata su $\boldsymbol{\theta}$).
+  \item Si dichiara $\boldsymbol{\eta}$ come ``random effect'': TMB fa automaticamente l'inner loop (Newton per trovare $\hat{\boldsymbol{\eta}}$) e l'outer loop (\texttt{nlminb}, quasi-Newton con vincoli, per massimizzare la Laplace approssimata su $\boldsymbol{\theta}$).
   \item Gli standard error vengono dal delta method sull'Hessiano della verosimiglianza marginale.
 \end{enumerate}
 
@@ -371,7 +371,7 @@ Abbiamo generato dati dal DGP del ZISAR con parametri noti e stimato tre modelli
     Il ZINB che ignora lo spazio ha bias positivo su $\beta_1$ che cresce con $\rho$ ($+0.055$ a $\rho=0.6$, $n=400$). Il ZISAR ha bias $-0.002$.
 
   \item \textbf{Il ZISAR ha la migliore verosimiglianza.}
-    Mediana della log-likelihood a $n=400$, $\rho=0.6$: ZISAR $= -501$, ZINB $= -884$, SAR-NB $= -887$.
+    Mediana della log-likelihood a $n=400$, $\rho=0.6$: ZISAR $= -869$, ZINB $= -884$, SAR-NB $= -887$ (la versione precedente del template TMB ometteva la costante $-\tfrac n2\log 2\pi$ e riportava $-501$).
 
   \item \textbf{Trade-off $\kappa$-$\sigma$.}
     In circa il 10--15\% delle repliche, lo stimatore di $\kappa$ va al bound (l'overdispersion NB viene assorbita dagli effetti random $\sigma^2$). Questo \`e un fenomeno noto nei modelli NB mixed; nelle applicazioni si pu\`o risolvere con prior informative o fissando $\sigma$.

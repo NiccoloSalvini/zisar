@@ -88,7 +88,7 @@ cat("ZINB log-lik:", logLik(fit_zinb), " | AIC:", AIC(fit_zinb), "\n\n")
 cat("=== Fitting SAR-NB ===\n")
 WX  <- as.matrix(W_sparse %*% X)
 W2X <- as.matrix(W_sparse %*% WX)
-H   <- cbind(X, WX, W2X)
+H   <- cbind(X, WX[, -1], W2X[, -1])  # W1 = 1: drop duplicated intercepts
 Wy  <- as.numeric(W_sparse %*% y)
 Wy_hat <- as.numeric(H %*% solve(crossprod(H)) %*% crossprod(H, Wy))
 
@@ -137,8 +137,14 @@ moran_zinb <- moran.test(resid_zinb, W_listw)
 resid_sarnb <- residuals(fit_sarnb, type = "pearson")
 moran_sarnb <- moran.test(resid_sarnb, W_listw)
 
+# Pearson residuals of the ZINB mixture, conditional on the estimated field:
+# E[y] = (1 - pi) mu,  Var[y] = (1 - pi) mu (1 + mu / kappa + pi mu)
 pred_zisar <- zisar_predict(fit_zisar, type = "response")
-resid_zisar <- (y - pred_zisar) / sqrt(pmax(pred_zisar, 0.5))
+mu_zisar   <- zisar_predict(fit_zisar, type = "count")
+pi_zisar   <- zisar_predict(fit_zisar, type = "zero")
+var_zisar  <- (1 - pi_zisar) * mu_zisar *
+              (1 + mu_zisar / fit_zisar$params$kappa + pi_zisar * mu_zisar)
+resid_zisar <- (y - pred_zisar) / sqrt(var_zisar)
 moran_zisar <- moran.test(resid_zisar, W_listw)
 
 cat(sprintf("  ZINB:    Moran's I = %.4f (p = %.4f)\n",
@@ -147,6 +153,41 @@ cat(sprintf("  SAR-NB:  Moran's I = %.4f (p = %.4f)\n",
             moran_sarnb$estimate[1], moran_sarnb$p.value))
 cat(sprintf("  ZISAR:   Moran's I = %.4f (p = %.4f)\n",
             moran_zisar$estimate[1], moran_zisar$p.value))
+
+# =============================================================================
+# SENSITIVITY TO W (k-nearest neighbours, k = 4, 6, 8) and results file
+# =============================================================================
+
+sens <- lapply(c(4, 6, 8), function(k) {
+  lw <- nb2listw(knn2nb(knearneigh(coords_mat, k = k)), style = "W")
+  Wk <- Matrix(listw2mat(lw), sparse = TRUE)
+  f  <- if (k == 6) fit_zisar else zisar_fit(y, X, Z, Wk)
+  c(k = k, rho = f$params$rho, beta_pop = f$params$beta[2],
+    beta_aging = f$params$beta[3], kappa = f$params$kappa, AIC = f$AIC)
+})
+sens <- do.call(rbind, sens)
+
+sink("application_results.txt")
+cat("Synthetic Piedmont-like data, seed 2024; truth: beta =", beta_true,
+    " gamma =", gamma_true, " rho =", rho_true, " kappa =", kappa_true,
+    " sigma =", sigma_true, "\n")
+cat("n =", n_muni, " zeros =", sum(y == 0), " mean =", round(mean(y), 2),
+    " var =", round(var(y), 2), "\n\n")
+cat("--- ZINB ---\n"); print(summary(fit_zinb)$coefficients); cat("theta =", fit_zinb$theta, "\n")
+cat("--- SAR-NB ---\n"); print(summary(fit_sarnb)$coefficients); cat("theta =", fit_sarnb$theta, "\n")
+cat("--- ZISAR ---\n"); print(fit_zisar$coef_table); print(fit_zisar$transformed)
+cat("\n--- Comparison ---\n"); print(comparison)
+cat("\n--- Effects (covariate 1 = intercept) ---\n")
+for (e in effects) cat(sprintf("cov %d: direct %.3f (%.3f) indirect %.3f (%.3f) total %.3f (%.3f)\n",
+  e$covariate, e$avg_direct, e$se_direct, e$avg_indirect, e$se_indirect, e$avg_total, e$se_total))
+cat("\n--- Moran's I (6-NN) ---\n")
+mt_y <- moran.test(y, W_listw)
+cat(sprintf("y: I = %.4f (p = %.4f)\n", mt_y$estimate[1], mt_y$p.value))
+cat(sprintf("ZINB: I = %.4f (p = %.4f)\nSAR-NB: I = %.4f (p = %.4f)\nZISAR: I = %.4f (p = %.4f)\n",
+  moran_zinb$estimate[1], moran_zinb$p.value, moran_sarnb$estimate[1], moran_sarnb$p.value,
+  moran_zisar$estimate[1], moran_zisar$p.value))
+cat("\n--- Sensitivity to W ---\n"); print(round(sens, 3))
+sink()
 
 # =============================================================================
 # VISUALIZATION

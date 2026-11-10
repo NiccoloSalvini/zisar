@@ -4,9 +4,9 @@
 #' zero-inflated negative binomial model whose log-mean follows a
 #' simultaneous autoregressive (SAR) process with unit-level random effects.
 #' By default the inflation probability depends on covariates only (the
-#' restricted model); with `zero_spatial = TRUE` it has a spatial random
-#' field of its own (the general model). `zisar()` takes a two-part formula
-#' and a data frame; `zisar_fit()` is the matrix interface underneath it.
+#' restricted model); `zero_spatial` adds spatial structure to it (the
+#' general model). `zisar()` takes a two-part formula and a data frame;
+#' `zisar_fit()` is the matrix interface underneath it.
 #'
 #' @section Model:
 #' For units \eqn{i = 1, \dots, n} linked by a spatial weights matrix
@@ -17,56 +17,82 @@
 #' binomial,
 #' \deqn{y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,
 #'   \mathrm{NB}(\mu_i, \kappa), \qquad \mu_i = \exp(\eta_i + o_i),
-#'   \qquad \mathrm{logit}(\pi_i) = z_i'\gamma,}
+#'   \qquad \mathrm{logit}(\pi_i) = \zeta_i,}
 #' with \eqn{\mathrm{Var}(y_i \mid \text{not a structural zero}) = \mu_i +
 #' \mu_i^2/\kappa} and \eqn{o_i} an optional offset (log exposure). The
 #' offset scales unit \eqn{i} only: it does not pass through the spatial
 #' multiplier.
 #'
-#' In the general model (`zero_spatial = TRUE`) the inflation predictor has
-#' a SAR random field of its own,
-#' \deqn{\mathrm{logit}(\pi_i) = z_i'\gamma + g_i, \qquad
-#'   g = \rho_0 W g + e_0, \qquad e_0 \sim N(0, \sigma_0^2 I),}
-#' independent of \eqn{u}, so that structural zeros can cluster in space
-#' beyond what the covariates explain. The restricted model is the limit
-#' \eqn{\sigma_0 \to 0}.
+#' The inflation predictor \eqn{\zeta} is set by `zero_spatial`:
+#' \describe{
+#'   \item{`"none"`}{The restricted model, \eqn{\zeta = Z\gamma}.}
+#'   \item{`"reduced"`}{A reduced-rank SAR field, \eqn{\zeta = Z\gamma +
+#'     B\alpha} with \eqn{\alpha = \rho_0 W_K \alpha + e_0}, \eqn{e_0 \sim
+#'     N(0, \sigma_0^2 I_K)}: \eqn{\alpha} holds the values of the field at
+#'     the \eqn{K} knots of a lattice, \eqn{W_K} is the contiguity of the
+#'     knots and \eqn{B} a basis of local functions built by
+#'     [zisar_basis()], so that structural zeros can cluster in space beyond
+#'     what the covariates explain. \eqn{\rho_0 \ge 0}. This is the
+#'     recommended general model.}
+#'   \item{`"field"`}{A SAR field with one element per unit, \eqn{\zeta =
+#'     Z\gamma + g} with \eqn{g = \rho_0 W g + e_0}, \eqn{e_0 \sim N(0,
+#'     \sigma_0^2 I)}. Its Laplace approximation fails (see Estimation).}
+#'   \item{`"sar"`}{A SAR filter on the predictor, \eqn{\zeta = (I - \rho_0
+#'     W)^{-1} Z\gamma}: the covariates of a unit's neighbours shift its
+#'     inflation probability. No random effects are added.}
+#' }
+#' The random fields are independent of \eqn{u}. The restricted model is the
+#' limit \eqn{\sigma_0 \to 0} of the fields, and \eqn{\rho_0 = 0} of the
+#' filter.
 #'
 #' @section Estimation:
-#' The latent field \eqn{\eta} is integrated out with the Laplace
-#' approximation in 'TMB' (together with \eqn{g} in the general model), and
-#' the marginal likelihood is maximised with [stats::nlminb()] over
-#' \eqn{(\beta, \gamma, \rho, \kappa, \sigma)}, plus \eqn{(\rho_0,
-#' \sigma_0)} in the general model, with \eqn{\rho = \tanh(\rho_{raw})}
-#' restricted to \eqn{(-1, 1)}. Standard errors come from the inverse Hessian
-#' of the Laplace objective; those of \eqn{\rho}, \eqn{\kappa},
-#' \eqn{\sigma}, \eqn{\rho_0} and \eqn{\sigma_0} from the delta method.
+#' The latent field \eqn{\eta} (and \eqn{g} or \eqn{\alpha}) is integrated out
+#' with the Laplace approximation in 'TMB', and the marginal likelihood is
+#' maximised with [stats::nlminb()] over \eqn{(\beta, \gamma, \rho, \kappa,
+#' \sigma)} and, in the general model, \eqn{\rho_0} and \eqn{\sigma_0}, with
+#' \eqn{\rho = \tanh(\rho_{raw})} restricted to \eqn{(-1, 1)}. Standard
+#' errors come from the inverse Hessian of the Laplace objective; those of
+#' \eqn{\rho}, \eqn{\kappa}, \eqn{\sigma}, \eqn{\rho_0} and \eqn{\sigma_0}
+#' from the delta method.
 #'
-#' The Laplace approximation can break down. For a zero count, the
-#' conditional distribution of \eqn{\eta_i} can be bimodal (a structural zero
-#' with a large mean, or a negative binomial zero with a small one), and
-#' when \eqn{\sigma} is large the approximation produces spurious optima with
-#' a positive log-likelihood and a huge gradient. This happens mostly with
-#' small samples and misspecified models (an omitted covariate inflates
-#' \eqn{\sigma}). Each fit is therefore checked: when the optimiser does not
-#' converge, or the optimum has a gradient above 0.01 or a positive
-#' log-likelihood, the fit is restarted from three other values of
-#' \eqn{\kappa} and \eqn{\sigma} and from up to three random perturbations of
-#' the best point (this uses the random number generator). If no usable
-#' optimum is found, `zisar()` warns and `laplace_ok` is `FALSE`.
+#' With a random field in the inflation predictor (`"reduced"` or
+#' `"field"`), the restricted model is fitted first, the Laplace likelihood of
+#' the general model is evaluated on a grid of \eqn{(\rho_0, \sigma_0)} with
+#' the other parameters at the restricted estimates, and the optimiser starts
+#' from the best grid point. The grid and the gain over the restricted fit are
+#' returned in `field_profile`; a gain that never rises above zero means the
+#' data hold no field.
 #'
-#' The general model is more exposed to this breakdown: a zero count can
-#' come from a large \eqn{g_i} (a structural zero) or from a small
-#' \eqn{\eta_i} (a negative binomial zero), and the two latent fields
-#' compete for the same zeros. Fit the restricted model first, and treat a
-#' general fit with `laplace_ok = FALSE` as uninformative about
-#' \eqn{(\rho_0, \sigma_0)}.
+#' The unit-level field (`"field"`) defeats the Laplace approximation: each
+#' \eqn{g_i} is informed by a single outcome that is zero or not, and the
+#' error of the approximation accumulates over the \eqn{n} elements of the
+#' field. On data without a field the approximate likelihood rises with
+#' \eqn{\sigma_0}, and the likelihood-ratio statistic against the restricted
+#' model can reach thousands. Use `"reduced"`, whose knot values are each
+#' informed by many units, and check any general fit on data simulated
+#' without a field (`simulate()` of the restricted fit).
+#'
+#' Each fit is checked: when the optimiser does not converge, or the optimum
+#' has a gradient above 0.01 or a positive log-likelihood, the fit is
+#' restarted from three other values of \eqn{\kappa} and \eqn{\sigma} and from
+#' up to three random perturbations of the best point (this uses the random
+#' number generator; `restarts = FALSE` skips it). If no clean optimum is
+#' found, `zisar()` warns and `laplace_ok` is `FALSE`. A positive
+#' log-likelihood is always a spurious optimum of the approximation. A large
+#' gradient is not specific: it marks spurious optima, but it also appears at
+#' genuine optima when structural zeros occur among units of high intensity,
+#' since the conditional distribution of \eqn{\eta_i} of a zero unit then has
+#' two modes and the objective is not smooth. Fit the model to data simulated
+#' from the fit to tell the two apart, and use a parametric bootstrap
+#' (`simulate()` and refits started from the estimates) for standard errors.
 #'
 #' The log-determinant \eqn{\log|I - \rho W|} is computed either from the
 #' eigenvalues of \eqn{W}, found once in \eqn{O(n^3)} time and \eqn{O(n^2)}
 #' memory (`logdet = "eigen"`), or from a sparse Cholesky factorisation of
 #' \eqn{(I - \rho W)'(I - \rho W)} at each evaluation (`logdet = "sparse"`),
 #' which scales to tens of thousands of units. `"auto"` uses the sparse
-#' method when \eqn{n > 5000}.
+#' method when \eqn{n > 5000}. The knot field uses the eigenvalues of
+#' \eqn{W_K}.
 #'
 #' @section Nested models:
 #' `fixed` holds parameters at given values, which gives the special cases
@@ -76,9 +102,9 @@
 #' sets \eqn{\pi_i \approx 0}, the SAR negative binomial with random effects
 #' (SAR-NB-RE). Likelihood-ratio tests between nested fits use
 #' [logLik()][logLik.zisar]. The restricted model sits on the boundary of the
-#' general one (\eqn{\sigma_0 = 0}), so the likelihood-ratio statistic
-#' between them does not have the usual chi-squared distribution: its
-#' p-value from \eqn{\chi^2_2} is conservative.
+#' models with a field (\eqn{\sigma_0 = 0}), so the likelihood-ratio
+#' statistic between them does not have the usual chi-squared distribution:
+#' its p-value from \eqn{\chi^2_2} is conservative.
 #'
 #' @param formula A two-part formula `y ~ x1 + x2 | z1 + z2`: the terms
 #'   before `|` enter the count process, those after it the zero-inflation
@@ -91,18 +117,27 @@
 #' @param W Spatial weights: an \eqn{n \times n} matrix (base or sparse
 #'   'Matrix') or an `spdep` `listw` object, with zero diagonal and
 #'   preferably row-standardised.
-#' @param zero_spatial If `TRUE`, fit the general model, with a SAR random
-#'   field in the inflation predictor (see Model).
+#' @param zero_spatial Inflation predictor: `"none"` (restricted model),
+#'   `"reduced"`, `"field"` or `"sar"`; see Model. `FALSE` and `TRUE` stand for
+#'   `"none"` and `"field"`.
+#' @param basis For `zero_spatial = "reduced"`, the basis from
+#'   [zisar_basis()].
 #' @param fixed Optional named list of parameters held at fixed values:
-#'   `rho`, `kappa`, `sigma`, and in the general model `rho0` and `sigma0`
-#'   (scalars, natural scale), `beta` (length `ncol(X)`) or `gamma` (length
-#'   `ncol(Z)`). In `beta` and `gamma`, `NA` entries are estimated.
+#'   `rho`, `kappa`, `sigma`, `rho0` and `sigma0` (scalars, natural scale),
+#'   `beta` (length `ncol(X)`) or `gamma` (length `ncol(Z)`). In `beta` and
+#'   `gamma`, `NA` entries are estimated.
 #' @param start Optional named list of starting values, with the same names
 #'   and scales as `fixed`. Defaults: `beta` from a Poisson regression,
 #'   inflation intercept from the share of zeros, `rho = 0`, `kappa = 1`,
-#'   `sigma = 0.5`, and `rho0 = 0`, `sigma0 = 0.5`.
+#'   `sigma = 0.5`, `rho0 = 0` and, for the fields, `rho0` and `sigma0` from
+#'   the grid described in Estimation. To restart from a previous fit, use
+#'   `start = list(beta = coef(fit, "count"), gamma = coef(fit, "zero"),
+#'   rho = fit$rho, kappa = fit$kappa, sigma = fit$sigma)`.
 #' @param logdet Method for the log-determinant: `"auto"`, `"eigen"` or
 #'   `"sparse"`. See Estimation.
+#' @param restarts If `TRUE`, restart a fit that fails the checks described in
+#'   Estimation. Set it to `FALSE` when a single fit is slow and a large
+#'   gradient is expected.
 #' @param control List of control parameters for [stats::nlminb()],
 #'   merged with the defaults `eval.max = 1000`, `iter.max = 500`,
 #'   `rel.tol = 1e-10`.
@@ -113,14 +148,18 @@
 #'     (\eqn{\gamma}) coefficients.}
 #'   \item{rho, kappa, sigma}{Spatial autoregressive parameter, negative
 #'     binomial shape and random-effect standard deviation.}
-#'   \item{rho0, sigma0}{In the general model, the spatial autoregressive
-#'     parameter and standard deviation of the inflation field; `NULL`
-#'     otherwise.}
+#'   \item{zero_spatial}{The inflation predictor, as in the argument.}
+#'   \item{rho0, sigma0}{Parameters of the inflation field or filter; `NULL`
+#'     when absent.}
 #'   \item{eta}{Mode of the latent field \eqn{\eta} given the data.}
-#'   \item{g}{Mode of the inflation field \eqn{g} (zero in the restricted
-#'     model).}
+#'   \item{g}{Mode of the inflation field (\eqn{g}, or \eqn{B\alpha} for the
+#'     reduced-rank field); zero without a field.}
+#'   \item{zeta}{The inflation predictor, \eqn{\mathrm{logit}(\pi)}.}
 #'   \item{fitted.values}{Fitted means \eqn{E[y_i] = (1 - \pi_i)\mu_i}.}
 #'   \item{loglik}{Laplace-approximated marginal log-likelihood.}
+#'   \item{field_profile}{For the fields: the grid of \eqn{(\rho_0,
+#'     \sigma_0)} with the gain in log-likelihood over the restricted fit,
+#'     and the restricted log-likelihood.}
 #'   \item{convergence, message}{Convergence code and message of
 #'     [stats::nlminb()].}
 #'   \item{max_grad, laplace_ok}{Largest gradient component at the optimum,
@@ -143,7 +182,8 @@
 #' \doi{10.18637/jss.v070.i05}
 #'
 #' @seealso [zisar_effects()] for direct, indirect and total effects,
-#'   [rzisar()] to simulate from the model.
+#'   [zisar_basis()] for the reduced-rank field, [rzisar()] to simulate from
+#'   the model.
 #' @export
 #' @examples
 #' set.seed(1)
@@ -158,16 +198,20 @@
 #' pchisq(as.numeric(lr), df = 1, lower.tail = FALSE)
 #'
 #' \donttest{
-#' # General model: zeros clustered by a spatial field of their own
+#' # General model: zeros clustered by a spatial field of their own, fitted
+#' # with a reduced-rank field on knots 4 cells apart
 #' set.seed(2)
-#' sim2 <- rzisar(15, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
-#'                rho0 = 0.6, sigma0 = 1)
+#' sim2 <- rzisar(20, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
+#'                zero_spatial = "field", rho0 = 0.9, sigma0 = 0.5)
+#' b <- zisar_basis(sim2$coords, h = 4)
 #' fit2 <- zisar(y ~ x1 | z1, data = sim2$data, W = sim2$W,
-#'               zero_spatial = TRUE)
+#'               zero_spatial = "reduced", basis = b)
 #' summary(fit2)
 #' }
-zisar <- function(formula, data, W, zero_spatial = FALSE, fixed = NULL,
-                  start = NULL, logdet = c("auto", "eigen", "sparse"),
+zisar <- function(formula, data, W,
+                  zero_spatial = c("none", "reduced", "field", "sar"),
+                  basis = NULL, fixed = NULL, start = NULL,
+                  logdet = c("auto", "eigen", "sparse"), restarts = TRUE,
                   control = list(), silent = TRUE) {
   cl <- match.call()
   if (missing(data)) data <- environment(formula)
@@ -192,8 +236,9 @@ zisar <- function(formula, data, W, zero_spatial = FALSE, fixed = NULL,
   offset <- model.offset(mf_count)
 
   fit <- zisar_fit(y, X, Z, W, offset = offset, zero_spatial = zero_spatial,
-                   fixed = fixed, start = start, logdet = logdet,
-                   control = control, silent = silent)
+                   basis = basis, fixed = fixed, start = start,
+                   logdet = logdet, restarts = restarts, control = control,
+                   silent = silent)
   fit$call <- cl
   fit$formula <- formula
   fit$terms <- list(count = mt_count, zero = mt_zero)
@@ -213,9 +258,10 @@ zisar <- function(formula, data, W, zero_spatial = FALSE, fixed = NULL,
 #' @param offset Optional vector of length \eqn{n} added to the count
 #'   log-mean (for example the log of an exposure).
 #' @export
-zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
-                      fixed = NULL, start = NULL,
-                      logdet = c("auto", "eigen", "sparse"),
+zisar_fit <- function(y, X, Z = NULL, W, offset = NULL,
+                      zero_spatial = c("none", "reduced", "field", "sar"),
+                      basis = NULL, fixed = NULL, start = NULL,
+                      logdet = c("auto", "eigen", "sparse"), restarts = TRUE,
                       control = list(), silent = TRUE) {
   n <- length(y)
   if (!is.numeric(y) || anyNA(y) || any(y < 0) || any(y != round(y)))
@@ -231,24 +277,41 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
     stop("`offset` must be a finite vector with one value per observation.",
          call. = FALSE)
   W <- .as_weights(W, n)
-  if (!is.logical(zero_spatial) || length(zero_spatial) != 1L ||
-      is.na(zero_spatial))
-    stop("`zero_spatial` must be TRUE or FALSE.", call. = FALSE)
-  zs <- zero_spatial
+  zm <- .zero_spatial_arg(zero_spatial)
+  if (zm == "reduced") {
+    if (!inherits(basis, "zisar_basis"))
+      stop("`zero_spatial = \"reduced\"` needs a `basis` from zisar_basis().",
+           call. = FALSE)
+    if (nrow(basis$B) != n)
+      stop(sprintf("`basis` was built for %d units, the data have %d.",
+                   nrow(basis$B), n), call. = FALSE)
+  } else if (!is.null(basis)) {
+    warning("`basis` is used only with `zero_spatial = \"reduced\"`.",
+            call. = FALSE)
+    basis <- NULL
+  }
+  field <- zm %in% c("field", "reduced")
   logdet <- match.arg(logdet)
   if (logdet == "auto") logdet <- if (n > 5000) "sparse" else "eigen"
+  fx <- .internal_fixed(fixed, p, q, zm)
+  st <- .internal_fixed(start, p, q, zm, "start")
 
-  if (logdet == "eigen") {
-    eig <- eigen(as.matrix(W), only.values = TRUE)$values
-    eig_re <- Re(eig)
-    eig_im <- Im(eig)
-    I_n <- WpWt <- WtW <- as(Matrix::Matrix(0, 1, 1, sparse = TRUE),
-                             "TsparseMatrix")
-  } else {
-    eig_re <- eig_im <- numeric(0)
-    I_n <- as(Matrix::Diagonal(n), "TsparseMatrix")
-    WpWt <- as(W + Matrix::t(W), "TsparseMatrix")
-    WtW <- as(Matrix::crossprod(W), "TsparseMatrix")
+  # A field starts from the restricted fit and a grid of (rho0, sigma0)
+  profile <- NULL
+  if (field && is.null(st$rho0_raw) && is.null(st$log_sigma0) &&
+      is.null(fx$rho0_raw) && is.null(fx$log_sigma0)) {
+    keep <- c("beta", "gamma", "rho", "kappa", "sigma")
+    r_fit <- zisar_fit(y, X, Z, W, offset = offset, zero_spatial = "none",
+                       fixed = fixed[intersect(names(fixed), keep)],
+                       start = start[intersect(names(start), keep)],
+                       logdet = logdet, restarts = restarts,
+                       control = control, silent = silent)
+    st <- utils::modifyList(st, list(
+      beta = unname(r_fit$coefficients$count),
+      gamma = unname(r_fit$coefficients$zero),
+      rho_raw = atanh(r_fit$rho), log_kappa = log(min(r_fit$kappa, 499)),
+      log_sigma = log(r_fit$sigma)))
+    profile <- list(restricted_loglik = r_fit$loglik, eta = r_fit$eta)
   }
 
   data <- list(
@@ -257,14 +320,25 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
     Z = Z,
     offset = as.numeric(offset),
     W = as(W, "TsparseMatrix"),
-    eigenvalues_W_re = eig_re,
-    eigenvalues_W_im = eig_im,
     logdet_sparse = as.integer(logdet == "sparse"),
-    I_n = I_n,
-    WpWt = WpWt,
-    WtW = WtW,
-    zero_spatial = as.integer(zs)
+    zero_spatial = match(zm, c("none", "field", "sar", "reduced")) - 1L
   )
+  empty <- as(Matrix::Matrix(0, 1, 1, sparse = TRUE), "TsparseMatrix")
+  if (logdet == "eigen") {
+    eig <- eigen(as.matrix(W), only.values = TRUE)$values
+    data$eigenvalues_W_re <- Re(eig)
+    data$eigenvalues_W_im <- Im(eig)
+    data$I_n <- data$WpWt <- data$WtW <- empty
+  } else {
+    data$eigenvalues_W_re <- data$eigenvalues_W_im <- numeric(0)
+    data$I_n <- as(Matrix::Diagonal(n), "TsparseMatrix")
+    data$WpWt <- as(W + Matrix::t(W), "TsparseMatrix")
+    data$WtW <- as(Matrix::crossprod(W), "TsparseMatrix")
+  }
+  data$B <- if (zm == "reduced") basis$B else empty
+  data$Wk <- if (zm == "reduced") basis$Wk else empty
+  data$eig_k_re <- if (zm == "reduced") basis$eig_re else numeric(0)
+  data$eig_k_im <- if (zm == "reduced") basis$eig_im else numeric(0)
 
   # Starting values: Poisson GLM for beta, share of zeros for the inflation
   # intercept
@@ -287,58 +361,90 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
     rho0_raw   = 0,
     log_sigma0 = log(0.5),
     eta        = as.numeric(X %*% init_beta),
-    g          = if (zs) rep(0, n) else numeric(0)
+    g          = if (zm == "field") rep(0, n) else numeric(0),
+    alpha      = if (zm == "reduced") rep(0, basis$K) else numeric(0)
   )
-  st <- .internal_fixed(start, p, q, zs, "start")
   for (b in names(st)) {
     v <- st[[b]]
     parameters[[b]][!is.na(v)] <- v[!is.na(v)]
   }
   if (!is.null(st$beta)) parameters$eta <- as.numeric(X %*% parameters$beta)
-  fx <- .internal_fixed(fixed, p, q, zs)
+  if (!is.null(profile)) parameters$eta <- profile$eta
   map <- list()
   for (b in names(fx)) {
     v <- fx[[b]]
     parameters[[b]][!is.na(v)] <- v[!is.na(v)]
     map[[b]] <- factor(ifelse(is.na(v), seq_along(v), NA))
   }
-  # The inflation field exists only in the general model
-  if (!zs) map[c("rho0_raw", "log_sigma0")] <- list(factor(NA), factor(NA))
+  # rho0 only with a field or filter, sigma0 only with a field
+  if (zm == "none") map$rho0_raw <- factor(NA)
+  if (!field) map$log_sigma0 <- factor(NA)
 
   # Bounds: beta and gamma free, rho_raw (rho0_raw) in [-4, 4]
-  # (|rho| < 0.9993), kappa in [0.01, 500], sigma (sigma0) in [0.001, 10]
-  free <- .free_mask(fx, p, q, zs)
+  # (|rho| < 0.9993), kappa in [0.01, 500], sigma (sigma0) in [0.001, 10];
+  # the knot field has rho0 >= 0
+  zextra <- .zero_extra(zm)
+  free <- .free_mask(fx, p, q, zm)
   lower <- c(rep(-Inf, p + q), -4, log(0.01), log(0.001),
-             if (zs) c(-4, log(0.001)))[free]
+             c(if (zm == "reduced") 0 else -4, log(0.001))[seq_along(zextra)])
   upper <- c(rep(Inf, p + q), 4, log(500), log(10),
-             if (zs) c(4, log(10)))[free]
+             c(4, log(10))[seq_along(zextra)])
+  lower <- lower[free]
+  upper <- upper[free]
   if (!any(free)) stop("`fixed` leaves no parameter to estimate.", call. = FALSE)
 
   ctrl <- utils::modifyList(list(eval.max = 1000, iter.max = 500,
                                  rel.tol = 1e-10), control)
   make_obj <- function(par0)
     TMB::MakeADFun(data = data, parameters = par0,
-                   random = c("eta", if (zs) "g"), map = map,
-                   DLL = "zisar", silent = silent)
-  best <- .optimise(make_obj(parameters), NULL, lower, upper, ctrl)
+                   random = c("eta", if (zm == "field") "g",
+                              if (zm == "reduced") "alpha"),
+                   map = map, DLL = "zisar", silent = silent)
+
+  obj0 <- make_obj(parameters)
+  x0 <- NULL
+  if (!is.null(profile)) {
+    grid <- expand.grid(rho0 = c(0, 0.5, 0.8, 0.9, 0.95),
+                        sigma0 = c(0.1, 0.3, 0.6, 1, 2))
+    at <- function(r0, s0) {
+      x <- obj0$par
+      x[names(x) == "rho0_raw"] <- atanh(r0)
+      x[names(x) == "log_sigma0"] <- log(s0)
+      x
+    }
+    nll <- vapply(seq_len(nrow(grid)), function(i)
+      tryCatch(suppressWarnings(obj0$fn(at(grid$rho0[i], grid$sigma0[i]))),
+               error = function(e) NA_real_), numeric(1))
+    grid$gain <- -nll - profile$restricted_loglik
+    if (any(is.finite(grid$gain))) {
+      k <- which.max(replace(grid$gain, !is.finite(grid$gain), -Inf))
+      x0 <- pmin(pmax(at(grid$rho0[k], grid$sigma0[k]), lower), upper)
+    }
+    profile <- list(grid = grid, restricted_loglik = profile$restricted_loglik)
+  }
+  best <- .optimise(obj0, x0, lower, upper, ctrl)
 
   # A failed fit is restarted from other values of kappa and sigma, then from
   # perturbations of the best point found (as in the code of the paper)
-  if (!.fit_ok(best) || best$opt$convergence != 0) {
+  if (restarts && (!.fit_ok(best) || best$opt$convergence != 0)) {
     alts <- list(c(log_kappa = 0, log_sigma = log(0.1)),
                  c(log_kappa = log(5), log_sigma = log(0.2)),
                  c(log_kappa = log(2), log_sigma = log(1)))
     for (a in alts) {
       par_a <- parameters
+      if (!is.null(x0)) {
+        par_a$rho0_raw <- x0[names(x0) == "rho0_raw"]
+        par_a$log_sigma0 <- x0[names(x0) == "log_sigma0"]
+      }
       for (b in setdiff(names(a), names(fx))) par_a[[b]] <- a[[b]]
       best <- .better_fit(best, .optimise(make_obj(par_a), NULL, lower,
                                           upper, ctrl))
     }
     for (attempt in 1:3) {
       if (is.null(best) || (.fit_ok(best) && best$opt$convergence == 0)) break
-      x0 <- pmin(pmax(best$opt$par + rnorm(length(best$opt$par), 0, 0.1),
+      xp <- pmin(pmax(best$opt$par + rnorm(length(best$opt$par), 0, 0.1),
                       lower), upper)
-      best <- .better_fit(best, .optimise(best$obj, x0, lower, upper, ctrl))
+      best <- .better_fit(best, .optimise(best$obj, xp, lower, upper, ctrl))
     }
   }
   if (is.null(best))
@@ -347,14 +453,19 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
          call. = FALSE)
   obj <- best$obj
   opt <- best$opt
-  if (!.fit_ok(best)) {
-    warning("The Laplace approximation is unreliable at the optimum ",
-            "(gradient ", signif(opt$max_grad, 3), ", log-likelihood ",
-            signif(-opt$objective, 5), "). With many zeros and a large ",
-            "random-effect variance the conditional distribution of eta can ",
-            "be bimodal for zero counts. Check the specification, simplify ",
-            "the model, or try other starting values with `start`.",
+  if (opt$objective <= 0) {
+    warning("The optimum has a positive log-likelihood (",
+            signif(-opt$objective, 5), "), a spurious optimum of the Laplace ",
+            "approximation. Check the specification, simplify the model, or ",
+            "try other starting values with `start`; see ?zisar.",
             call. = FALSE)
+  } else if (!.fit_ok(best)) {
+    warning("The optimum has a large gradient (", signif(opt$max_grad, 3),
+            "). It may be a spurious optimum of the Laplace approximation, ",
+            "or a genuine one with structural zeros among units of high ",
+            "intensity. Refit to data simulated from this fit to tell them ",
+            "apart, and use a parametric bootstrap for standard errors; see ",
+            "?zisar.", call. = FALSE)
   } else if (opt$convergence != 0) {
     warning("The optimiser did not converge: ", opt$message, call. = FALSE)
   }
@@ -367,8 +478,7 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
     error = function(e) NULL)
 
   par_names <- c(paste0("count_", colnames(X)), paste0("zero_", colnames(Z)),
-                 "rho_raw", "log_kappa", "log_sigma",
-                 if (zs) c("rho0_raw", "log_sigma0"))
+                 "rho_raw", "log_kappa", "log_sigma", zextra)
   vc <- tryCatch(solve(H), error = function(e) NULL)
   if (is.null(vc) || any(!is.finite(vc)) || any(diag(vc) <= 0)) {
     warning("The Hessian is not positive definite: standard errors are ",
@@ -381,16 +491,26 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
   pl <- obj$env$parList(opt$par)
   par <- stats::setNames(c(pl$beta, pl$gamma, pl$rho_raw, pl$log_kappa,
                            pl$log_sigma,
-                           if (zs) c(pl$rho0_raw, pl$log_sigma0)), par_names)
+                           c(pl$rho0_raw, pl$log_sigma0)[seq_along(zextra)]),
+                         par_names)
   beta <- stats::setNames(pl$beta, colnames(X))
   gamma <- stats::setNames(pl$gamma, colnames(Z))
   obj$fn(opt$par)
   lp <- obj$env$last.par
   eta <- as.numeric(lp[names(lp) == "eta"])
-  g <- if (zs) as.numeric(lp[names(lp) == "g"]) else rep(0, n)
+  alpha <- if (zm == "reduced") as.numeric(lp[names(lp) == "alpha"])
+  g <- switch(zm,
+              field = as.numeric(lp[names(lp) == "g"]),
+              reduced = as.numeric(basis$B %*% alpha),
+              rep(0, n))
+  rho0 <- if (zm != "none") tanh(pl$rho0_raw)
+  zeta <- as.numeric(Z %*% gamma) + g
+  if (zm == "sar")
+    zeta <- as.numeric(Matrix::solve(Matrix::Diagonal(n) - rho0 * W, zeta))
 
   # Delta-method SEs of the natural-scale parameters
-  nat_names <- c("rho", "kappa", "sigma", if (zs) c("rho0", "sigma0"))
+  nat_names <- c("rho", "kappa", "sigma",
+                 c("rho0", "sigma0")[seq_along(zextra)])
   rep_se <- stats::setNames(rep(NA_real_, length(nat_names)), nat_names)
   if (!is.null(sdr) && all(is.finite(vc))) {
     s <- summary(sdr, "report")
@@ -399,7 +519,7 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
   rep_se[!free[p + q + seq_along(nat_names)]] <- NA_real_
 
   mu <- exp(eta + offset)
-  pi <- as.numeric(plogis(as.numeric(Z %*% gamma) + g))
+  pi <- plogis(zeta)
 
   structure(
     list(
@@ -407,15 +527,17 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
       rho           = tanh(pl$rho_raw),
       kappa         = exp(pl$log_kappa),
       sigma         = exp(pl$log_sigma),
-      zero_spatial  = zs,
-      rho0          = if (zs) tanh(pl$rho0_raw),
-      sigma0        = if (zs) exp(pl$log_sigma0),
+      zero_spatial  = zm,
+      rho0          = rho0,
+      sigma0        = if (field) exp(pl$log_sigma0),
       se_natural    = rep_se,
       par           = par,
       free          = stats::setNames(free, par_names),
       vcov_internal = vc,
       eta           = eta,
       g             = g,
+      alpha         = alpha,
+      zeta          = zeta,
       mu            = mu,
       pi            = pi,
       fitted.values = (1 - pi) * mu,
@@ -427,6 +549,8 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
       Z             = Z,
       offset        = as.numeric(offset),
       W             = W,
+      basis         = basis,
+      field_profile = profile,
       logdet        = logdet,
       convergence   = opt$convergence,
       message       = opt$message,
@@ -438,6 +562,25 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
     ),
     class = "zisar"
   )
+}
+
+# `zero_spatial` argument -> "none", "reduced", "field" or "sar"
+.zero_spatial_arg <- function(zero_spatial) {
+  choices <- c("none", "reduced", "field", "sar")
+  if (is.logical(zero_spatial) && length(zero_spatial) == 1L &&
+      !is.na(zero_spatial))
+    return(if (zero_spatial) "field" else "none")
+  if (!is.character(zero_spatial) || !length(zero_spatial) ||
+      !zero_spatial[1] %in% choices)
+    stop("`zero_spatial` must be one of \"none\", \"reduced\", \"field\" or ",
+         "\"sar\".", call. = FALSE)
+  zero_spatial[1]
+}
+
+# Extra internal parameters of each inflation predictor
+.zero_extra <- function(zm) {
+  switch(zm, none = character(0), sar = "rho0_raw",
+         c("rho0_raw", "log_sigma0"))
 }
 
 # One nlminb run from x0 (default: the object's starting values). Records the
@@ -508,8 +651,9 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
   if (length(k)) k[1] else NA_integer_
 }
 
-# User-facing `fixed` (natural scale) -> internal parameter blocks
-.internal_fixed <- function(fixed, p, q, zero_spatial = FALSE, arg = "fixed") {
+# User-facing `fixed` (natural scale) -> internal parameter blocks; `zm` is
+# the inflation predictor ("none", "reduced", "field" or "sar")
+.internal_fixed <- function(fixed, p, q, zm = "none", arg = "fixed") {
   if (is.null(fixed) || !length(fixed)) return(list())
   if (!is.list(fixed) || is.null(names(fixed)) || any(names(fixed) == ""))
     stop(sprintf("`%s` must be a named list.", arg), call. = FALSE)
@@ -520,9 +664,12 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
          paste(bad, collapse = ", "),
          ". Use beta, gamma, rho, kappa, sigma, rho0 or sigma0.",
          call. = FALSE)
-  if (!zero_spatial && any(c("rho0", "sigma0") %in% names(fixed)))
-    stop(sprintf("`%s$rho0` and `%s$sigma0` need the general model ", arg,
-                 arg), "(`zero_spatial = TRUE`).", call. = FALSE)
+  if (zm == "none" && any(c("rho0", "sigma0") %in% names(fixed)))
+    stop(sprintf("`%s$rho0` and `%s$sigma0` need a spatial inflation ", arg,
+                 arg), "predictor (`zero_spatial`).", call. = FALSE)
+  if (zm == "sar" && "sigma0" %in% names(fixed))
+    stop(sprintf("`%s$sigma0` needs a random inflation field ", arg),
+         "(`zero_spatial = \"reduced\"` or `\"field\"`).", call. = FALSE)
   out <- list()
   for (b in c("beta", "gamma")) {
     if (is.null(fixed[[b]])) next
@@ -544,22 +691,27 @@ zisar_fit <- function(y, X, Z = NULL, W, offset = NULL, zero_spatial = FALSE,
     out$log_kappa <- scal("kappa", function(v) v > 0, log, "a positive number")
   if (!is.null(fixed[["sigma"]]))
     out$log_sigma <- scal("sigma", function(v) v > 0, log, "a positive number")
-  if (!is.null(fixed[["rho0"]]))
-    out$rho0_raw <- scal("rho0", function(v) abs(v) < 1, atanh,
-                         "a number in (-1, 1)")
+  if (!is.null(fixed[["rho0"]])) {
+    if (zm == "reduced")
+      out$rho0_raw <- scal("rho0", function(v) v >= 0 && v < 1, atanh,
+                           "a number in [0, 1) for the reduced-rank field")
+    else
+      out$rho0_raw <- scal("rho0", function(v) abs(v) < 1, atanh,
+                           "a number in (-1, 1)")
+  }
   if (!is.null(fixed[["sigma0"]]))
     out$log_sigma0 <- scal("sigma0", function(v) v > 0, log,
                            "a positive number")
   out
 }
 
-# Which of the p + q + 3 (+ 2 in the general model) fixed-effect parameters
-# are estimated
-.free_mask <- function(fx, p, q, zero_spatial = FALSE) {
+# Which of the p + q + 3 fixed-effect parameters (plus rho0 and sigma0 of the
+# inflation predictor) are estimated
+.free_mask <- function(fx, p, q, zm = "none") {
   free_block <- function(b, len)
     if (is.null(fx[[b]])) rep(TRUE, len) else is.na(fx[[b]])
+  extra <- .zero_extra(zm)
   c(free_block("beta", p), free_block("gamma", q), free_block("rho_raw", 1),
     free_block("log_kappa", 1), free_block("log_sigma", 1),
-    if (zero_spatial) c(free_block("rho0_raw", 1),
-                        free_block("log_sigma0", 1)))
+    unlist(lapply(extra, free_block, len = 1)))
 }

@@ -16,3 +16,5 @@
 ^notebooks$
 ^slides$
 ^\.git$
+^data$
+^data-raw$

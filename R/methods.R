@@ -3,12 +3,12 @@
 #' Standard accessors for objects returned by [zisar()] and [zisar_fit()].
 #'
 #' `coef()` and `vcov()` cover the regression coefficients and \eqn{\rho}
-#' (and \eqn{\rho_0} in the general model); the negative binomial shape
-#' \eqn{\kappa} and the random-effect standard deviations \eqn{\sigma} and
-#' \eqn{\sigma_0} are reported by `summary()` and stored in `object$kappa`,
-#' `object$sigma` and `object$sigma0`. The covariance of \eqn{\rho} and
-#' \eqn{\rho_0} comes from the delta method; rows and columns of parameters
-#' held fixed are `NA`.
+#' (and \eqn{\rho_0} when the inflation predictor has a field or a filter);
+#' the negative binomial shape \eqn{\kappa} and the standard deviations
+#' \eqn{\sigma} and \eqn{\sigma_0} are reported by `summary()` and stored
+#' in `object$kappa`, `object$sigma` and `object$sigma0`. The covariance of
+#' \eqn{\rho} and \eqn{\rho_0} comes from the delta method; rows and
+#' columns of parameters held fixed are `NA`.
 #'
 #' `logLik()` returns the Laplace-approximated marginal log-likelihood, with
 #' degrees of freedom equal to the number of estimated parameters, so
@@ -16,8 +16,8 @@
 #'
 #' @param object,x A fitted `"zisar"` object.
 #' @param model Which coefficients: `"full"` (count, zero-inflation,
-#'   \eqn{\rho} and, in the general model, \eqn{\rho_0}), `"count"` or
-#'   `"zero"`.
+#'   \eqn{\rho} and, with a spatial inflation predictor, \eqn{\rho_0}),
+#'   `"count"` or `"zero"`.
 #' @param digits Number of significant digits to print.
 #' @param ... Not used.
 #'
@@ -46,7 +46,7 @@ coef.zisar <- function(object, model = c("full", "count", "zero"), ...) {
     full = c(stats::setNames(cf$count, paste0("count_", names(cf$count))),
              stats::setNames(cf$zero, paste0("zero_", names(cf$zero))),
              rho = object$rho,
-             if (isTRUE(object$zero_spatial)) c(rho0 = object$rho0))
+             if (.zmode(object) != "none") c(rho0 = object$rho0))
   )
 }
 
@@ -56,7 +56,7 @@ vcov.zisar <- function(object, model = c("full", "count", "zero"), ...) {
   model <- match.arg(model)
   p <- length(object$coefficients$count)
   q <- length(object$coefficients$zero)
-  zs <- isTRUE(object$zero_spatial)
+  zs <- .zmode(object) != "none"
   keep <- c(seq_len(p + q + 1), if (zs) p + q + 4)
   V <- .vcov_full_internal(object)[keep, keep, drop = FALSE]
   # d rho / d rho_raw = 1 - rho^2; elementwise, so NA rows do not spread
@@ -109,8 +109,13 @@ print.zisar <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   cat(sprintf("\nrho = %s   kappa = %s   sigma = %s\n",
               format(x$rho, digits = digits), format(x$kappa, digits = digits),
               format(x$sigma, digits = digits)))
-  if (isTRUE(x$zero_spatial))
-    cat(sprintf("Inflation field: rho0 = %s   sigma0 = %s\n",
+  zm <- .zmode(x)
+  if (zm == "sar")
+    cat(sprintf("Inflation SAR filter: rho0 = %s\n",
+                format(x$rho0, digits = digits)))
+  if (zm %in% c("field", "reduced"))
+    cat(sprintf("Inflation field (%s): rho0 = %s   sigma0 = %s\n",
+                if (zm == "reduced") paste(x$basis$K, "knots") else "unit level",
                 format(x$rho0, digits = digits),
                 format(x$sigma0, digits = digits)))
   cat(sprintf("Log-likelihood: %s on %d Df   (n = %d)\n\n",
@@ -134,9 +139,8 @@ summary.zisar <- function(object, ...) {
   rownames(count) <- names(object$coefficients$count)
   rownames(zero) <- names(object$coefficients$zero)
 
-  nat <- c(rho = object$rho, kappa = object$kappa, sigma = object$sigma)
-  if (isTRUE(object$zero_spatial))
-    nat <- c(nat, rho0 = object$rho0, sigma0 = object$sigma0)
+  nat <- c(rho = object$rho, kappa = object$kappa, sigma = object$sigma,
+           rho0 = object$rho0, sigma0 = object$sigma0)
   spatial <- wald(nat, object$se_natural[names(nat)])
   no_test <- intersect(c("kappa", "sigma", "sigma0"), names(nat))
   spatial[no_test, c("z value", "Pr(>|z|)")] <- NA
@@ -150,7 +154,7 @@ summary.zisar <- function(object, ...) {
                                                             names(user_names)]]
   structure(
     list(call = object$call, count = count, zero = zero, spatial = spatial,
-         zero_spatial = isTRUE(object$zero_spatial), fixed = fixed,
+         zero_spatial = .zmode(object), K = object$basis$K, fixed = fixed,
          loglik = object$loglik, df = object$df, n = object$n,
          zeros = mean(object$y == 0),
          aic = stats::AIC(ll), bic = stats::BIC(ll),
@@ -179,7 +183,13 @@ print.summary.zisar <- function(x, digits = max(3L, getOption("digits") - 3L),
   stats::printCoefmat(x$zero, digits = digits, signif.stars = signif.stars,
                       na.print = "NA")
   cat("\nSpatial and dispersion parameters",
-      if (x$zero_spatial) " (rho0, sigma0: inflation field)", ":\n", sep = "")
+      switch(x$zero_spatial,
+             none = "",
+             sar = " (rho0: SAR filter of the inflation predictor)",
+             field = " (rho0, sigma0: unit-level inflation field)",
+             reduced = sprintf(paste0(" (rho0, sigma0: reduced-rank inflation ",
+                                      "field, %d knots)"), x$K)),
+      ":\n", sep = "")
   stats::printCoefmat(x$spatial, digits = digits, signif.stars = signif.stars,
                       na.print = "", has.Pvalue = TRUE, P.values = TRUE)
   if (length(x$fixed))
@@ -213,8 +223,11 @@ print.summary.zisar <- function(x, digits = max(3L, getOption("digits") - 3L),
 #' recomputed through the spatial multiplier,
 #' \eqn{\eta^* = (I - \rho W)^{-1}(X^*\beta + \hat u)}, keeping the predicted
 #' random effects \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} at their
-#' estimates, so a change in one unit spills over to its neighbours. In the
-#' general model the inflation field \eqn{g} is also kept at its mode.
+#' estimates, so a change in one unit spills over to its neighbours. An
+#' inflation field \eqn{g} is kept at its mode; with the SAR filter
+#' (`zero_spatial = "sar"`) the inflation predictor is recomputed through
+#' \eqn{(I - \rho_0 W)^{-1}}, so changes in the inflation covariates spill
+#' over too.
 #' Predictions for new units would need a new weights matrix and are not
 #' supported.
 #'
@@ -260,8 +273,7 @@ predict.zisar <- function(object, newdata = NULL,
     u_hat <- as.numeric(A %*% object$eta) - as.numeric(object$X %*% beta)
     eta <- as.numeric(Matrix::solve(A, as.numeric(des$X %*% beta) + u_hat))
     mu <- exp(eta + des$offset)
-    pi <- as.numeric(plogis(as.numeric(des$Z %*% object$coefficients$zero) +
-                              .g_hat(object)))
+    pi <- plogis(.zeta(object, des$Z))
   }
   switch(type,
     response = (1 - pi) * mu,
@@ -271,8 +283,24 @@ predict.zisar <- function(object, newdata = NULL,
   )
 }
 
-# Mode of the inflation field: zero in the restricted model
-.g_hat <- function(object) if (is.null(object$g)) 0 else object$g
+# Inflation predictor of a fit as a string (a logical in fits from
+# version 0.1)
+.zmode <- function(object) {
+  z <- object$zero_spatial
+  if (is.null(z) || isFALSE(z)) "none" else if (isTRUE(z)) "field" else z
+}
+
+# Inflation predictor zeta at design Z and (gamma, rho0): Z gamma plus the
+# mode of the field, or the SAR filter of Z gamma
+.zeta <- function(object, Z = object$Z, gamma = object$coefficients$zero,
+                  rho0 = object$rho0) {
+  lin <- as.numeric(Z %*% gamma)
+  switch(.zmode(object),
+         none = lin,
+         sar = as.numeric(Matrix::solve(Matrix::Diagonal(object$n) -
+                                          rho0 * object$W, lin)),
+         lin + object$g)
+}
 
 # Design matrices and offset of newdata, with the fitted terms and levels
 .new_design <- function(object, newdata) {
@@ -320,9 +348,15 @@ residuals.zisar <- function(object, type = c("pearson", "response"), ...) {
 #'
 #' Draws new count vectors from the fitted model, for example for a
 #' parametric bootstrap. Each draw takes new random effects \eqn{u} (and a
-#' new inflation field \eqn{g} in the general model), new structural-zero
-#' indicators and new negative binomial counts, at the estimated parameters
-#' and the observed covariates.
+#' new inflation field, \eqn{g} or \eqn{\alpha}, when the model has one),
+#' new structural-zero indicators and new negative binomial counts, at the
+#' estimated parameters and the observed covariates.
+#'
+#' To check a large gradient at the optimum (see [zisar()]), refit the model
+#' to a few simulated responses: if the refits show the same gradient while
+#' recovering the parameters, it belongs to the model and not to a spurious
+#' optimum. For bootstrap standard errors, start each refit from the
+#' estimates with `start`.
 #'
 #' @param object A fitted `"zisar"` object.
 #' @param nsim Number of response vectors to simulate.
@@ -340,12 +374,12 @@ residuals.zisar <- function(object, type = c("pearson", "response"), ...) {
 #' c(observed = mean(sim$data$y == 0), simulated = mean(as.matrix(ys) == 0))
 simulate.zisar <- function(object, nsim = 1, seed = NULL, ...) {
   if (!is.null(seed)) set.seed(seed)
-  zs <- isTRUE(object$zero_spatial)
+  zero <- list(mode = .zmode(object), rho0 = object$rho0,
+               sigma0 = object$sigma0, basis = object$basis)
   sims <- replicate(nsim, .rzisar_core(
     object$X, object$Z, object$W, object$coefficients$count,
     object$coefficients$zero, object$rho, object$kappa, object$sigma,
-    object$offset, rho0 = if (zs) object$rho0 else 0,
-    sigma0 = if (zs) object$sigma0 else 0)$y, simplify = FALSE)
+    object$offset, zero = zero)$y, simplify = FALSE)
   out <- as.data.frame(sims, col.names = paste0("sim_", seq_len(nsim)))
   attr(out, "seed") <- seed
   out

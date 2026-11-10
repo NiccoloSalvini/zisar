@@ -52,6 +52,9 @@ lattice_weights <- function(nrow, ncol = nrow, type = c("queen", "rook"),
   if (!(is.matrix(W) || inherits(W, "Matrix")))
     stop("`W` must be a matrix, a sparse 'Matrix' or an spdep 'listw' object.",
          call. = FALSE)
+  # Matrix::Matrix() first: it also loads the coercion methods of 'Matrix',
+  # which as() needs in a session where 'Matrix' is not loaded yet
+  if (is.matrix(W)) W <- Matrix::Matrix(W, sparse = TRUE)
   W <- as(as(as(W, "dMatrix"), "generalMatrix"), "CsparseMatrix")
   if (nrow(W) != ncol(W))
     stop("`W` must be a square matrix.", call. = FALSE)

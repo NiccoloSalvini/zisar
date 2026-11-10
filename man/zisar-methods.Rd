@@ -37,8 +37,8 @@
 \item{object, x}{A fitted \code{"zisar"} object.}
 
 \item{model}{Which coefficients: \code{"full"} (count, zero-inflation,
-\eqn{\rho} and, in the general model, \eqn{\rho_0}), \code{"count"} or
-\code{"zero"}.}
+\eqn{\rho} and, with a spatial inflation predictor, \eqn{\rho_0}),
+\code{"count"} or \code{"zero"}.}
 
 \item{...}{Not used.}
 
@@ -58,12 +58,12 @@ Standard accessors for objects returned by \code{\link[=zisar]{zisar()}} and \co
 }
 \details{
 \code{coef()} and \code{vcov()} cover the regression coefficients and \eqn{\rho}
-(and \eqn{\rho_0} in the general model); the negative binomial shape
-\eqn{\kappa} and the random-effect standard deviations \eqn{\sigma} and
-\eqn{\sigma_0} are reported by \code{summary()} and stored in \code{object$kappa},
-\code{object$sigma} and \code{object$sigma0}. The covariance of \eqn{\rho} and
-\eqn{\rho_0} comes from the delta method; rows and columns of parameters
-held fixed are \code{NA}.
+(and \eqn{\rho_0} when the inflation predictor has a field or a filter);
+the negative binomial shape \eqn{\kappa} and the standard deviations
+\eqn{\sigma} and \eqn{\sigma_0} are reported by \code{summary()} and stored
+in \code{object$kappa}, \code{object$sigma} and \code{object$sigma0}. The covariance of
+\eqn{\rho} and \eqn{\rho_0} comes from the delta method; rows and
+columns of parameters held fixed are \code{NA}.
 
 \code{logLik()} returns the Laplace-approximated marginal log-likelihood, with
 degrees of freedom equal to the number of estimated parameters, so

@@ -1,3 +1,27 @@
+# zisar 0.2.0
+
+* `zero_spatial` now selects the inflation predictor: `"none"` (restricted
+  model), `"reduced"`, `"field"` or `"sar"`. `TRUE` and `FALSE` still work and
+  mean `"field"` and `"none"`.
+* New reduced-rank inflation field (`zero_spatial = "reduced"`): a SAR field
+  on the knots of a lattice, spread over the units by a bisquare basis built
+  by the new `zisar_basis()`. It is the recommended general model: the
+  Laplace approximation of the unit-level field (`"field"`) fails, with
+  likelihood-ratio statistics in the thousands on data without a field.
+* New SAR filter on the inflation predictor (`zero_spatial = "sar"`),
+  `logit(pi) = (I - rho0 W)^{-1} Z gamma`, with spillovers of the inflation
+  covariates in `zisar_effects()` and `predict()`.
+* Fits with a random inflation field start from the restricted fit and a grid
+  of `(rho0, sigma0)`, returned in `field_profile`.
+* The warning on a large gradient no longer calls the optimum spurious: with
+  structural zeros among units of high intensity a genuine optimum has one
+  too. Check it on data from `simulate()` and use a parametric bootstrap for
+  standard errors (see `vignette("zisar")`). A positive log-likelihood is
+  still reported as spurious.
+* New argument `restarts = FALSE` skips the restarts of a fit that fails the
+  checks, for slow fits where a large gradient is expected.
+* `rzisar()` gains `zero_spatial`; `rho0` and `sigma0` now need it.
+
 # zisar 0.1.0
 
 First release.

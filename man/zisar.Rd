@@ -9,10 +9,12 @@ zisar(
   formula,
   data,
   W,
-  zero_spatial = FALSE,
+  zero_spatial = c("none", "reduced", "field", "sar"),
+  basis = NULL,
   fixed = NULL,
   start = NULL,
   logdet = c("auto", "eigen", "sparse"),
+  restarts = TRUE,
   control = list(),
   silent = TRUE
 )
@@ -23,10 +25,12 @@ zisar_fit(
   Z = NULL,
   W,
   offset = NULL,
-  zero_spatial = FALSE,
+  zero_spatial = c("none", "reduced", "field", "sar"),
+  basis = NULL,
   fixed = NULL,
   start = NULL,
   logdet = c("auto", "eigen", "sparse"),
+  restarts = TRUE,
   control = list(),
   silent = TRUE
 )
@@ -46,21 +50,31 @@ spatial multiplier, so none can be dropped.}
 'Matrix') or an \code{spdep} \code{listw} object, with zero diagonal and
 preferably row-standardised.}
 
-\item{zero_spatial}{If \code{TRUE}, fit the general model, with a SAR random
-field in the inflation predictor (see Model).}
+\item{zero_spatial}{Inflation predictor: \code{"none"} (restricted model),
+\code{"reduced"}, \code{"field"} or \code{"sar"}; see Model. \code{FALSE} and \code{TRUE} stand for
+\code{"none"} and \code{"field"}.}
+
+\item{basis}{For \code{zero_spatial = "reduced"}, the basis from
+\code{\link[=zisar_basis]{zisar_basis()}}.}
 
 \item{fixed}{Optional named list of parameters held at fixed values:
-\code{rho}, \code{kappa}, \code{sigma}, and in the general model \code{rho0} and \code{sigma0}
-(scalars, natural scale), \code{beta} (length \code{ncol(X)}) or \code{gamma} (length
-\code{ncol(Z)}). In \code{beta} and \code{gamma}, \code{NA} entries are estimated.}
+\code{rho}, \code{kappa}, \code{sigma}, \code{rho0} and \code{sigma0} (scalars, natural scale),
+\code{beta} (length \code{ncol(X)}) or \code{gamma} (length \code{ncol(Z)}). In \code{beta} and
+\code{gamma}, \code{NA} entries are estimated.}
 
 \item{start}{Optional named list of starting values, with the same names
 and scales as \code{fixed}. Defaults: \code{beta} from a Poisson regression,
 inflation intercept from the share of zeros, \code{rho = 0}, \code{kappa = 1},
-\code{sigma = 0.5}, and \code{rho0 = 0}, \code{sigma0 = 0.5}.}
+\code{sigma = 0.5}, \code{rho0 = 0} and, for the fields, \code{rho0} and \code{sigma0} from
+the grid described in Estimation. To restart from a previous fit, use
+\code{start = list(beta = coef(fit, "count"), gamma = coef(fit, "zero"), rho = fit$rho, kappa = fit$kappa, sigma = fit$sigma)}.}
 
 \item{logdet}{Method for the log-determinant: \code{"auto"}, \code{"eigen"} or
 \code{"sparse"}. See Estimation.}
+
+\item{restarts}{If \code{TRUE}, restart a fit that fails the checks described in
+Estimation. Set it to \code{FALSE} when a single fit is slow and a large
+gradient is expected.}
 
 \item{control}{List of control parameters for \code{\link[stats:nlminb]{stats::nlminb()}},
 merged with the defaults \code{eval.max = 1000}, \code{iter.max = 500},
@@ -85,14 +99,18 @@ An object of class \code{"zisar"}, a list with, among others:
 (\eqn{\gamma}) coefficients.}
 \item{rho, kappa, sigma}{Spatial autoregressive parameter, negative
 binomial shape and random-effect standard deviation.}
-\item{rho0, sigma0}{In the general model, the spatial autoregressive
-parameter and standard deviation of the inflation field; \code{NULL}
-otherwise.}
+\item{zero_spatial}{The inflation predictor, as in the argument.}
+\item{rho0, sigma0}{Parameters of the inflation field or filter; \code{NULL}
+when absent.}
 \item{eta}{Mode of the latent field \eqn{\eta} given the data.}
-\item{g}{Mode of the inflation field \eqn{g} (zero in the restricted
-model).}
+\item{g}{Mode of the inflation field (\eqn{g}, or \eqn{B\alpha} for the
+reduced-rank field); zero without a field.}
+\item{zeta}{The inflation predictor, \eqn{\mathrm{logit}(\pi)}.}
 \item{fitted.values}{Fitted means \eqn{E[y_i] = (1 - \pi_i)\mu_i}.}
 \item{loglik}{Laplace-approximated marginal log-likelihood.}
+\item{field_profile}{For the fields: the grid of \eqn{(\rho_0,
+    \sigma_0)} with the gain in log-likelihood over the restricted fit,
+and the restricted log-likelihood.}
 \item{convergence, message}{Convergence code and message of
 \code{\link[stats:nlminb]{stats::nlminb()}}.}
 \item{max_grad, laplace_ok}{Largest gradient component at the optimum,
@@ -109,9 +127,9 @@ Fits the ZISAR model of Salvini, Arbia and Nardelli (2026): a
 zero-inflated negative binomial model whose log-mean follows a
 simultaneous autoregressive (SAR) process with unit-level random effects.
 By default the inflation probability depends on covariates only (the
-restricted model); with \code{zero_spatial = TRUE} it has a spatial random
-field of its own (the general model). \code{zisar()} takes a two-part formula
-and a data frame; \code{zisar_fit()} is the matrix interface underneath it.
+restricted model); \code{zero_spatial} adds spatial structure to it (the
+general model). \code{zisar()} takes a two-part formula and a data frame;
+\code{zisar_fit()} is the matrix interface underneath it.
 }
 \section{Model}{
 
@@ -123,58 +141,84 @@ probability \eqn{\pi_i} (a structural zero) and otherwise negative
 binomial,
 \deqn{y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,
   \mathrm{NB}(\mu_i, \kappa), \qquad \mu_i = \exp(\eta_i + o_i),
-  \qquad \mathrm{logit}(\pi_i) = z_i'\gamma,}
+  \qquad \mathrm{logit}(\pi_i) = \zeta_i,}
 with \eqn{\mathrm{Var}(y_i \mid \text{not a structural zero}) = \mu_i +
 \mu_i^2/\kappa} and \eqn{o_i} an optional offset (log exposure). The
 offset scales unit \eqn{i} only: it does not pass through the spatial
 multiplier.
 
-In the general model (\code{zero_spatial = TRUE}) the inflation predictor has
-a SAR random field of its own,
-\deqn{\mathrm{logit}(\pi_i) = z_i'\gamma + g_i, \qquad
-  g = \rho_0 W g + e_0, \qquad e_0 \sim N(0, \sigma_0^2 I),}
-independent of \eqn{u}, so that structural zeros can cluster in space
-beyond what the covariates explain. The restricted model is the limit
-\eqn{\sigma_0 \to 0}.
+The inflation predictor \eqn{\zeta} is set by \code{zero_spatial}:
+\describe{
+\item{\code{"none"}}{The restricted model, \eqn{\zeta = Z\gamma}.}
+\item{\code{"reduced"}}{A reduced-rank SAR field, \eqn{\zeta = Z\gamma +
+    B\alpha} with \eqn{\alpha = \rho_0 W_K \alpha + e_0}, \eqn{e_0 \sim
+    N(0, \sigma_0^2 I_K)}: \eqn{\alpha} holds the values of the field at
+the \eqn{K} knots of a lattice, \eqn{W_K} is the contiguity of the
+knots and \eqn{B} a basis of local functions built by
+\code{\link[=zisar_basis]{zisar_basis()}}, so that structural zeros can cluster in space beyond
+what the covariates explain. \eqn{\rho_0 \ge 0}. This is the
+recommended general model.}
+\item{\code{"field"}}{A SAR field with one element per unit, \eqn{\zeta =
+    Z\gamma + g} with \eqn{g = \rho_0 W g + e_0}, \eqn{e_0 \sim N(0,
+    \sigma_0^2 I)}. Its Laplace approximation fails (see Estimation).}
+\item{\code{"sar"}}{A SAR filter on the predictor, \eqn{\zeta = (I - \rho_0
+    W)^{-1} Z\gamma}: the covariates of a unit's neighbours shift its
+inflation probability. No random effects are added.}
+}
+The random fields are independent of \eqn{u}. The restricted model is the
+limit \eqn{\sigma_0 \to 0} of the fields, and \eqn{\rho_0 = 0} of the
+filter.
 }
 
 \section{Estimation}{
 
-The latent field \eqn{\eta} is integrated out with the Laplace
-approximation in 'TMB' (together with \eqn{g} in the general model), and
-the marginal likelihood is maximised with \code{\link[stats:nlminb]{stats::nlminb()}} over
-\eqn{(\beta, \gamma, \rho, \kappa, \sigma)}, plus \eqn{(\rho_0,
-\sigma_0)} in the general model, with \eqn{\rho = \tanh(\rho_{raw})}
-restricted to \eqn{(-1, 1)}. Standard errors come from the inverse Hessian
-of the Laplace objective; those of \eqn{\rho}, \eqn{\kappa},
-\eqn{\sigma}, \eqn{\rho_0} and \eqn{\sigma_0} from the delta method.
+The latent field \eqn{\eta} (and \eqn{g} or \eqn{\alpha}) is integrated out
+with the Laplace approximation in 'TMB', and the marginal likelihood is
+maximised with \code{\link[stats:nlminb]{stats::nlminb()}} over \eqn{(\beta, \gamma, \rho, \kappa,
+\sigma)} and, in the general model, \eqn{\rho_0} and \eqn{\sigma_0}, with
+\eqn{\rho = \tanh(\rho_{raw})} restricted to \eqn{(-1, 1)}. Standard
+errors come from the inverse Hessian of the Laplace objective; those of
+\eqn{\rho}, \eqn{\kappa}, \eqn{\sigma}, \eqn{\rho_0} and \eqn{\sigma_0}
+from the delta method.
 
-The Laplace approximation can break down. For a zero count, the
-conditional distribution of \eqn{\eta_i} can be bimodal (a structural zero
-with a large mean, or a negative binomial zero with a small one), and
-when \eqn{\sigma} is large the approximation produces spurious optima with
-a positive log-likelihood and a huge gradient. This happens mostly with
-small samples and misspecified models (an omitted covariate inflates
-\eqn{\sigma}). Each fit is therefore checked: when the optimiser does not
-converge, or the optimum has a gradient above 0.01 or a positive
-log-likelihood, the fit is restarted from three other values of
-\eqn{\kappa} and \eqn{\sigma} and from up to three random perturbations of
-the best point (this uses the random number generator). If no usable
-optimum is found, \code{zisar()} warns and \code{laplace_ok} is \code{FALSE}.
+With a random field in the inflation predictor (\code{"reduced"} or
+\code{"field"}), the restricted model is fitted first, the Laplace likelihood of
+the general model is evaluated on a grid of \eqn{(\rho_0, \sigma_0)} with
+the other parameters at the restricted estimates, and the optimiser starts
+from the best grid point. The grid and the gain over the restricted fit are
+returned in \code{field_profile}; a gain that never rises above zero means the
+data hold no field.
 
-The general model is more exposed to this breakdown: a zero count can
-come from a large \eqn{g_i} (a structural zero) or from a small
-\eqn{\eta_i} (a negative binomial zero), and the two latent fields
-compete for the same zeros. Fit the restricted model first, and treat a
-general fit with \code{laplace_ok = FALSE} as uninformative about
-\eqn{(\rho_0, \sigma_0)}.
+The unit-level field (\code{"field"}) defeats the Laplace approximation: each
+\eqn{g_i} is informed by a single outcome that is zero or not, and the
+error of the approximation accumulates over the \eqn{n} elements of the
+field. On data without a field the approximate likelihood rises with
+\eqn{\sigma_0}, and the likelihood-ratio statistic against the restricted
+model can reach thousands. Use \code{"reduced"}, whose knot values are each
+informed by many units, and check any general fit on data simulated
+without a field (\code{simulate()} of the restricted fit).
+
+Each fit is checked: when the optimiser does not converge, or the optimum
+has a gradient above 0.01 or a positive log-likelihood, the fit is
+restarted from three other values of \eqn{\kappa} and \eqn{\sigma} and from
+up to three random perturbations of the best point (this uses the random
+number generator; \code{restarts = FALSE} skips it). If no clean optimum is
+found, \code{zisar()} warns and \code{laplace_ok} is \code{FALSE}. A positive
+log-likelihood is always a spurious optimum of the approximation. A large
+gradient is not specific: it marks spurious optima, but it also appears at
+genuine optima when structural zeros occur among units of high intensity,
+since the conditional distribution of \eqn{\eta_i} of a zero unit then has
+two modes and the objective is not smooth. Fit the model to data simulated
+from the fit to tell the two apart, and use a parametric bootstrap
+(\code{simulate()} and refits started from the estimates) for standard errors.
 
 The log-determinant \eqn{\log|I - \rho W|} is computed either from the
 eigenvalues of \eqn{W}, found once in \eqn{O(n^3)} time and \eqn{O(n^2)}
 memory (\code{logdet = "eigen"}), or from a sparse Cholesky factorisation of
 \eqn{(I - \rho W)'(I - \rho W)} at each evaluation (\code{logdet = "sparse"}),
 which scales to tens of thousands of units. \code{"auto"} uses the sparse
-method when \eqn{n > 5000}.
+method when \eqn{n > 5000}. The knot field uses the eigenvalues of
+\eqn{W_K}.
 }
 
 \section{Nested models}{
@@ -186,9 +230,9 @@ intercept-only inflation part (\code{y ~ x | 1}), \code{fixed = list(gamma = -20
 sets \eqn{\pi_i \approx 0}, the SAR negative binomial with random effects
 (SAR-NB-RE). Likelihood-ratio tests between nested fits use
 \link[=logLik.zisar]{logLik()}. The restricted model sits on the boundary of the
-general one (\eqn{\sigma_0 = 0}), so the likelihood-ratio statistic
-between them does not have the usual chi-squared distribution: its
-p-value from \eqn{\chi^2_2} is conservative.
+models with a field (\eqn{\sigma_0 = 0}), so the likelihood-ratio
+statistic between them does not have the usual chi-squared distribution:
+its p-value from \eqn{\chi^2_2} is conservative.
 }
 
 \examples{
@@ -204,12 +248,14 @@ lr <- 2 * (logLik(fit) - logLik(fit0))
 pchisq(as.numeric(lr), df = 1, lower.tail = FALSE)
 
 \donttest{
-# General model: zeros clustered by a spatial field of their own
+# General model: zeros clustered by a spatial field of their own, fitted
+# with a reduced-rank field on knots 4 cells apart
 set.seed(2)
-sim2 <- rzisar(15, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
-               rho0 = 0.6, sigma0 = 1)
+sim2 <- rzisar(20, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
+               zero_spatial = "field", rho0 = 0.9, sigma0 = 0.5)
+b <- zisar_basis(sim2$coords, h = 4)
 fit2 <- zisar(y ~ x1 | z1, data = sim2$data, W = sim2$W,
-              zero_spatial = TRUE)
+              zero_spatial = "reduced", basis = b)
 summary(fit2)
 }
 }
@@ -225,5 +271,6 @@ Kristensen, K., Nielsen, A., Berg, C. W., Skaug, H. and Bell, B. M.
 }
 \seealso{
 \code{\link[=zisar_effects]{zisar_effects()}} for direct, indirect and total effects,
-\code{\link[=rzisar]{rzisar()}} to simulate from the model.
+\code{\link[=zisar_basis]{zisar_basis()}} for the reduced-rank field, \code{\link[=rzisar]{rzisar()}} to simulate from
+the model.
 }

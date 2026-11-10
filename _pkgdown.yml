@@ -6,6 +6,7 @@ reference:
   - title: Fitting
     contents:
       - zisar
+      - zisar_basis
       - zisar_effects
   - title: Methods for fitted models
     contents:

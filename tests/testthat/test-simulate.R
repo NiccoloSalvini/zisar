@@ -29,18 +29,28 @@ test_that("rzisar() accepts a user weights matrix", {
   expect_named(sim$data, "y")
 })
 
-test_that("rzisar() draws an inflation field in the general model", {
+test_that("rzisar() draws an inflation field or filter", {
   set.seed(4)
   a <- rzisar(8, beta = c(1, 0.5), rho = 0.3, gamma = c(-1, 0.5))
-  set.seed(4)
-  b <- rzisar(8, beta = c(1, 0.5), rho = 0.3, gamma = c(-1, 0.5),
-              rho0 = 0.5, sigma0 = 0)
-  expect_identical(a$data, b$data)
   expect_equal(a$g, rep(0, 64))
+  expect_equal(a$zeta, as.numeric(-1 + 0.5 * a$data$z1))
+  expect_error(rzisar(8, beta = 1, rho = 0.3, gamma = -1, rho0 = 0.5),
+               "zero_spatial")
 
   set.seed(5)
-  sim <- rzisar(8, beta = 1, rho = 0.3, gamma = -1, rho0 = 0.5, sigma0 = 1)
+  sim <- rzisar(8, beta = 1, rho = 0.3, gamma = -1, zero_spatial = "field",
+                rho0 = 0.5, sigma0 = 1)
   expect_gt(sd(sim$g), 0)
   expect_equal(sim$pi, plogis(-1 + sim$g))
   expect_equal(sim$truth$sigma0, 1)
+
+  set.seed(6)
+  sim <- rzisar(8, beta = 1, rho = 0.3, gamma = c(-1, 1),
+                zero_spatial = "sar", rho0 = 0.5)
+  expect_equal(sim$g, rep(0, 64))
+  A <- diag(64) - 0.5 * as.matrix(sim$W)
+  expect_equal(sim$zeta, as.numeric(solve(A, -1 + sim$data$z1)))
+  expect_error(rzisar(8, beta = 1, rho = 0.3, gamma = -1,
+                      zero_spatial = "sar", rho0 = 0.5, sigma0 = 1),
+               "no `sigma0`")
 })

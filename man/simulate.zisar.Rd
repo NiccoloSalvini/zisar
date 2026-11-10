@@ -22,9 +22,16 @@ each.
 \description{
 Draws new count vectors from the fitted model, for example for a
 parametric bootstrap. Each draw takes new random effects \eqn{u} (and a
-new inflation field \eqn{g} in the general model), new structural-zero
-indicators and new negative binomial counts, at the estimated parameters
-and the observed covariates.
+new inflation field, \eqn{g} or \eqn{\alpha}, when the model has one),
+new structural-zero indicators and new negative binomial counts, at the
+estimated parameters and the observed covariates.
+}
+\details{
+To check a large gradient at the optimum (see \code{\link[=zisar]{zisar()}}), refit the model
+to a few simulated responses: if the refits show the same gradient while
+recovering the parameters, it belongs to the model and not to a spurious
+optimum. For bootstrap standard errors, start each refit from the
+estimates with \code{start}.
 }
 \examples{
 set.seed(1)

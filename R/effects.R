@@ -18,15 +18,18 @@
 #' parts of the formula) adds the inflation channel
 #' \eqn{-\mu_i \pi_i (1 - \pi_i) \gamma_r}, which acts on the unit itself
 #' only and so enters the direct and total effects. A covariate of the
-#' inflation part alone has this direct effect only.
+#' inflation part alone has this direct effect only. With the SAR filter on
+#' the inflation predictor (`zero_spatial = "sar"`) the inflation channel
+#' passes through \eqn{S_0 = (I - \rho_0 W)^{-1}} as well, and has an
+#' indirect part.
 #'
 #' Standard errors and intervals are simulation-based: parameters are drawn
 #' from their estimated asymptotic normal distribution and the effects
 #' recomputed for each draw, keeping the predicted random effects
-#' \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} (and, in the general
-#' model, the inflation field \eqn{\hat g}) at their estimates. For
-#' \eqn{n > 3000}, the diagonal of \eqn{S(\rho)} along the draws is
-#' interpolated between seven exact evaluations.
+#' \eqn{\hat u = (I - \rho W)\hat\eta - X\beta} (and an inflation field
+#' at its mode) at their estimates. For \eqn{n > 3000}, the diagonal of
+#' \eqn{S(\rho)} along the draws is interpolated between seven exact
+#' evaluations.
 #'
 #' @param object A fitted `"zisar"` object.
 #' @param B Number of simulation draws for standard errors and intervals;
@@ -55,7 +58,7 @@ zisar_effects <- function(object, B = 500, level = 0.95) {
   p <- ncol(X)
   q <- ncol(Z)
   I_n <- Matrix::Diagonal(n)
-  g_hat <- .g_hat(object)
+  zsar <- .zmode(object) == "sar"
 
   # Covariates (intercepts excluded) and their columns in X and Z
   terms <- union(.covariates(X), .covariates(Z))
@@ -64,23 +67,29 @@ zisar_effects <- function(object, B = 500, level = 0.95) {
   gz <- match(terms, colnames(Z))
   pick <- function(v, idx) ifelse(is.na(idx), 0, v[idx])
 
-  avg <- function(beta, gamma, rho, eta, s_ii) {
+  # s0_ii: diagonal of S0 = (I - rho0 W)^{-1} with the SAR filter on the
+  # inflation predictor, 1 otherwise
+  avg <- function(beta, gamma, rho, rho0, eta, s_ii, s0_ii) {
     mu <- exp(eta + object$offset)
-    pi <- as.numeric(plogis(as.numeric(Z %*% gamma) + g_hat))
+    pi <- plogis(.zeta(object, Z, gamma, rho0))
     d <- (1 - pi) * mu
     s_1 <- as.numeric(Matrix::solve(I_n - rho * W, rep(1, n)))
-    zch <- mean(mu * pi * (1 - pi))
+    s0_1 <- if (zsar) as.numeric(Matrix::solve(I_n - rho0 * W, rep(1, n)))
+            else 1
+    zc <- mu * pi * (1 - pi)
     b <- pick(beta, bx)
     g <- pick(gamma, gz)
-    direct <- mean(d * s_ii) * b - zch * g
-    total <- mean(d * s_1) * b - zch * g
+    direct <- mean(d * s_ii) * b - mean(zc * s0_ii) * g
+    total <- mean(d * s_1) * b - mean(zc * s0_1) * g
     cbind(direct = direct, indirect = total - direct, total = total)
   }
 
   beta <- object$coefficients$count
   gamma <- object$coefficients$zero
   rho <- object$rho
-  point <- avg(beta, gamma, rho, object$eta, .sar_diag(W, rho))
+  rho0 <- object$rho0
+  point <- avg(beta, gamma, rho, rho0, object$eta, .sar_diag(W, rho),
+               if (zsar) .sar_diag(W, rho0) else 1)
 
   out <- data.frame(term = rep(terms, 3),
                     effect = rep(c("direct", "indirect", "total"),
@@ -108,14 +117,20 @@ zisar_effects <- function(object, B = 500, level = 0.95) {
     u_hat <- as.numeric((I_n - rho * W) %*% object$eta) -
       as.numeric(X %*% beta)
     s_ii_at <- .sar_diag_along(W, rho_draws, rho)
+    if (zsar) {
+      rho0_draws <- tanh(full[, p + q + 4])
+      s0_ii_at <- .sar_diag_along(W, rho0_draws, rho0)
+    }
 
     sims <- array(NA_real_, c(B, length(terms), 3))
     for (b in seq_len(B)) {
       beta_b <- full[b, seq_len(p)]
       eta_b <- as.numeric(Matrix::solve(I_n - rho_draws[b] * W,
                                         as.numeric(X %*% beta_b) + u_hat))
-      sims[b, , ] <- avg(beta_b, full[b, p + seq_len(q)], rho_draws[b], eta_b,
-                         s_ii_at(rho_draws[b]))
+      sims[b, , ] <- avg(beta_b, full[b, p + seq_len(q)], rho_draws[b],
+                         if (zsar) rho0_draws[b], eta_b,
+                         s_ii_at(rho_draws[b]),
+                         if (zsar) s0_ii_at(rho0_draws[b]) else 1)
     }
     # Draws with an overflowing mean are dropped
     valid <- apply(sims, 1, function(m) all(is.finite(m)))

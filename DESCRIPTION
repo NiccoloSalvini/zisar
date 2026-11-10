@@ -1,6 +1,6 @@
 Package: zisar
 Title: Zero-Inflated Spatial Autoregressive Models for Count Data
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(
     person("Niccolò", "Salvini", , "niccolo@binoocle.net", role = c("aut", "cre")),
     person("Giuseppe", "Arbia", role = "aut"),
@@ -10,7 +10,7 @@ Description: Fits the zero-inflated spatial autoregressive (ZISAR) model for
     spatial count data with excess zeros. A simultaneous autoregressive (SAR)
     process on the latent log-mean of a zero-inflated negative binomial
     model carries spatial spillovers, and unit-level Gaussian random effects
-    absorb residual heterogeneity. An optional second SAR field in the
+    absorb residual heterogeneity. An optional reduced-rank SAR field in the
     zero-inflation predictor captures spatially clustered structural zeros.
     Parameters are estimated by maximising
     the Laplace approximation to the marginal likelihood with 'TMB', whose

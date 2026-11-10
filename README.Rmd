@@ -9,7 +9,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 options(digits = 4)
 ```
 
-# zisar
+# zisar <img src="man/figures/logo.png" align="right" height="139" alt="zisar hex sticker" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml)
@@ -27,8 +27,9 @@ y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(e^{\eta_i}, \kappa),
 \qquad \mathrm{logit}(\pi_i) = z_i'\gamma .
 $$
 
-With `zero_spatial = TRUE` the zero-inflation predictor gets a spatial field
-of its own, for structural zeros that cluster in space.
+With `zero_spatial = "reduced"` the zero-inflation predictor gets a
+reduced-rank spatial field of its own, for structural zeros that cluster in
+space.
 
 Parameters are estimated by maximising the Laplace approximation to the
 marginal likelihood with [TMB](https://cran.r-project.org/package=TMB), whose

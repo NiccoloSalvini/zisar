@@ -136,7 +136,7 @@ test_that("a breakdown of the Laplace approximation is reported", {
                    fixed = list(rho = 0)),
       "Hessian"
     ),
-    "unreliable"
+    "positive log-likelihood"
   )
   expect_false(fit$laplace_ok)
   expect_output(print(summary(fit)), "unreliable")

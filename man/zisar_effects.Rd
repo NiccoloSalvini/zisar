@@ -48,15 +48,18 @@ A covariate that also enters the zero-inflation part (same name in both
 parts of the formula) adds the inflation channel
 \eqn{-\mu_i \pi_i (1 - \pi_i) \gamma_r}, which acts on the unit itself
 only and so enters the direct and total effects. A covariate of the
-inflation part alone has this direct effect only.
+inflation part alone has this direct effect only. With the SAR filter on
+the inflation predictor (\code{zero_spatial = "sar"}) the inflation channel
+passes through \eqn{S_0 = (I - \rho_0 W)^{-1}} as well, and has an
+indirect part.
 
 Standard errors and intervals are simulation-based: parameters are drawn
 from their estimated asymptotic normal distribution and the effects
 recomputed for each draw, keeping the predicted random effects
-\eqn{\hat u = (I - \rho W)\hat\eta - X\beta} (and, in the general
-model, the inflation field \eqn{\hat g}) at their estimates. For
-\eqn{n > 3000}, the diagonal of \eqn{S(\rho)} along the draws is
-interpolated between seven exact evaluations.
+\eqn{\hat u = (I - \rho W)\hat\eta - X\beta} (and an inflation field
+at its mode) at their estimates. For \eqn{n > 3000}, the diagonal of
+\eqn{S(\rho)} along the draws is interpolated between seven exact
+evaluations.
 }
 \examples{
 set.seed(1)

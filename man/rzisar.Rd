@@ -11,6 +11,7 @@ rzisar(
   gamma,
   kappa = 2,
   sigma = 0.5,
+  zero_spatial = c("none", "field", "sar"),
   rho0 = 0,
   sigma0 = 0,
   W = NULL
@@ -30,9 +31,12 @@ Ignored when \code{W} is supplied.}
 
 \item{sigma}{Standard deviation of the random effects.}
 
+\item{zero_spatial}{Inflation predictor: \code{"none"} (restricted model),
+\code{"field"} or \code{"sar"}.}
+
 \item{rho0, sigma0}{Spatial autoregressive parameter and standard deviation
-of the inflation field (general model). With \code{sigma0 = 0} no field is
-drawn and the random-number stream is that of the restricted model.}
+of the inflation field (\code{"field"}), or parameter of the filter
+(\code{"sar"}, which takes no \code{sigma0}).}
 
 \item{W}{Optional row-standardised weights matrix (or \code{spdep} \code{listw})
 to use instead of the lattice.}
@@ -43,25 +47,30 @@ A list with
 \verb{x1, x2, ...} and the inflation covariates \verb{z1, z2, ...}, ready for
 \code{zisar(y ~ x1 + ... | z1 + ..., data = data, W = W)}.}
 \item{W}{The weights matrix (sparse).}
-\item{coords}{Lattice coordinates (\code{row}, \code{col}), or \code{NULL} with a
-user-supplied \code{W}.}
+\item{coords}{Lattice coordinates (\code{row}, \code{col}), for example for
+\code{\link[=zisar_basis]{zisar_basis()}}; \code{NULL} with a user-supplied \code{W}.}
 \item{truth}{The parameters used.}
-\item{eta, g, mu, pi, s}{Latent field, inflation field (zero in the
-restricted model), negative binomial means, inflation probabilities
-and structural-zero indicators.}
+\item{eta, g, zeta, mu, pi, s}{Latent field, inflation field (zero
+without one), inflation predictor, negative binomial means, inflation
+probabilities and structural-zero indicators.}
 }
 \description{
 Draws one data set from the ZISAR model, on a regular lattice with queen
 contiguity (the Monte Carlo design of the ZISAR paper) or on a weights
 matrix supplied by the user. Covariates are independent standard normal;
-the first element of \code{beta} and of \code{gamma} is the intercept. With
-\code{sigma0 > 0} the inflation predictor has a SAR field of its own (the
-general model of \code{\link[=zisar]{zisar()}}); the default \code{sigma0 = 0} gives the
-restricted model.
+the first element of \code{beta} and of \code{gamma} is the intercept.
+\code{zero_spatial} adds spatial structure to the inflation predictor: a SAR
+field with one element per unit (\code{"field"}, the general model of the
+paper) or a SAR filter on \eqn{Z\gamma} (\code{"sar"}); see \code{\link[=zisar]{zisar()}}.
 }
 \examples{
 set.seed(42)
 sim <- rzisar(15, beta = c(1, 0.5, -0.3), rho = 0.5, gamma = c(-1, 0.7))
 head(sim$data)
 mean(sim$data$y == 0)
+
+# Structural zeros clustered by a field of their own
+sim2 <- rzisar(15, beta = c(1, 0.5), rho = 0.5, gamma = c(-1, 0.7),
+               zero_spatial = "field", rho0 = 0.8, sigma0 = 1)
+cor(sim2$g, as.numeric(sim2$W \%*\% sim2$g))
 }

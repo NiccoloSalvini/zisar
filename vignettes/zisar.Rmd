@@ -161,26 +161,47 @@ approximation breaks down (see below).
 
 In the restricted model, structural zeros depend on \(z_i\) only. When
 whole areas are out of the market (a planning restriction, no supplier
-nearby), the zeros cluster beyond what the covariates explain. The general
-model gives the inflation predictor a SAR field of its own,
+nearby), the zeros cluster beyond what the covariates explain, and the
+inflation predictor needs a spatial structure of its own. `zero_spatial`
+selects it.
 
-\[
-\mathrm{logit}(\pi_i) = z_i'\gamma + g_i, \qquad
-g = (I - \rho_0 W)^{-1} e_0, \qquad e_0 \sim N(0, \sigma_0^2 I),
-\]
+The natural choice is a SAR field with one value per unit,
+\(\mathrm{logit}(\pi_i) = z_i'\gamma + g_i\) with
+\(g = (I - \rho_0 W)^{-1} e_0\), \(e_0 \sim N(0, \sigma_0^2 I)\),
+independent of \(u\) (`zero_spatial = "field"`). Its Laplace approximation
+fails: each \(g_i\) is informed by a single outcome that is zero or not, the
+error of the approximation accumulates over the \(n\) values of the field,
+and on data without any field the likelihood-ratio statistic against the
+restricted model can reach the thousands. The package fits it, but does not
+recommend it.
 
-independent of \(u\). `rzisar()` draws it when `sigma0 > 0`, and
-`zero_spatial = TRUE` fits it:
+The reduced-rank field (`zero_spatial = "reduced"`) puts the SAR field on
+the \(K\) knots of a lattice instead, \(g = B\alpha\) with
+\(\alpha = (I - \rho_0 W_K)^{-1} e_0\), and spreads each knot value over
+the units nearby through the basis \(B\). Each knot value is informed by
+many units, and the approximation holds. `zisar_basis()` builds the knots
+and the basis from the coordinates of the units and a knot spacing, which
+sets the resolution of the field. Here the data come from a unit-level
+field, and the reduced-rank field on knots four cells apart recovers it:
 
 ```{r general}
-set.seed(2)
-sim0 <- rzisar(15, beta = c(1, 0.5), rho = 0.4, gamma = c(-1, 0.8),
-               rho0 = 0.6, sigma0 = 1)
+set.seed(3)
+sim0 <- rzisar(20, beta = c(1, 0.5), rho = 0.4, gamma = c(-0.5, 0.8),
+               zero_spatial = "field", rho0 = 0.9, sigma0 = 0.6)
+b <- zisar_basis(sim0$coords, h = 4)
+b
 fit_r <- zisar(y ~ x1 | z1, data = sim0$data, W = sim0$W)
 fit_g <- zisar(y ~ x1 | z1, data = sim0$data, W = sim0$W,
-               zero_spatial = TRUE)
+               zero_spatial = "reduced", basis = b)
 summary(fit_g)$spatial
+cor(fit_g$g, sim0$g)
 ```
+
+The fit starts from the restricted model: the likelihood of the general
+model is evaluated on a grid of \((\rho_0, \sigma_0)\) with the other
+parameters at the restricted estimates, and the optimiser starts from the
+best point. The grid is kept in `fit_g$field_profile`; a gain that never
+rises above zero means the data hold no field.
 
 The restricted model is the general one with \(\sigma_0 = 0\), on the
 boundary of the parameter space, so the likelihood-ratio statistic has a
@@ -191,28 +212,47 @@ lr <- 2 * (logLik(fit_g) - logLik(fit_r))
 pchisq(as.numeric(lr), df = 2, lower.tail = FALSE)
 ```
 
-The two latent fields compete for the same zeros (a zero is either a
-structural zero, with a large \(g_i\), or a negative binomial zero, with a
-small \(\eta_i\)), so the general model is harder to estimate and more
-exposed to the breakdown described next. Fit the restricted model first,
-and read \(\rho_0\) and \(\sigma_0\) only from a general fit with
-`laplace_ok = TRUE`.
+`zero_spatial = "sar"` is a different mechanism, without random effects: a
+SAR filter on the predictor, \(\mathrm{logit}(\pi) = (I - \rho_0 W)^{-1}
+Z\gamma\), so that the inflation covariates of a unit's neighbours shift its
+probability of a structural zero, and `zisar_effects()` reports spillovers
+for them too.
 
 ## When the Laplace approximation breaks down
 
 For a zero count, the conditional distribution of \(\eta_i\) can be bimodal:
 the zero is either structural (and \(\mu_i\) can be large) or negative
-binomial (and \(\mu_i\) is small). When \(\sigma\) is large this produces
-spurious optima, with a huge gradient and sometimes a positive
-log-likelihood. It happens mostly in small samples and with misspecified
-models, for example with an omitted covariate. `zisar()` checks every fit,
-restarts from other values when a check fails, and warns if no usable
-optimum is found; `fit$laplace_ok` records the outcome and `summary()`
-reports it.
+binomial (and \(\mu_i\) is small). This produces spurious optima, with a
+huge gradient and sometimes a positive log-likelihood, mostly in small
+samples, with misspecified models (an omitted covariate) and with the
+unit-level inflation field. `zisar()` checks every fit, restarts from other
+values when a check fails, and warns if no clean optimum is found;
+`fit$laplace_ok` records the outcome and `summary()` reports it.
 
 ```{r check}
 fit$laplace_ok
 fit$max_grad
+```
+
+A large gradient is not always spurious. When structural zeros occur among
+units of high intensity, the bimodality is part of the model and the
+genuine optimum has a large gradient too. A positive log-likelihood is
+always spurious; a large gradient is told apart by refitting the model to
+data simulated from the fit, which share the gradient if it is genuine.
+Standard errors then come from a parametric bootstrap, with each refit
+started from the estimates:
+
+```{r bootstrap, eval = FALSE}
+st <- list(beta = coef(fit, "count"), gamma = coef(fit, "zero"),
+           rho = fit$rho, kappa = fit$kappa, sigma = fit$sigma)
+ys <- simulate(fit, nsim = 100, seed = 1)
+boot <- sapply(ys, function(y) {
+  d <- sim$data
+  d$y <- y
+  coef(suppressWarnings(zisar(y ~ x1 + x2 | z1, data = d, W = sim$W,
+                              start = st, restarts = FALSE)))
+})
+apply(boot, 1, sd)
 ```
 
 ## Large data sets

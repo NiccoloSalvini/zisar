@@ -1,3 +1,13 @@
+# R package
+.Rproj.user
+.Rhistory
+.RData
+docs/
+inst/doc
+
+# Paper, notebooks, slides and data: kept locally, not versioned
+/paper/
+
 # Compiled TMB objects
 notebooks/*.o
 notebooks/*.so

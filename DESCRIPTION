@@ -1,0 +1,48 @@
+Package: zisar
+Title: Zero-Inflated Spatial Autoregressive Models for Count Data
+Version: 0.2.0
+Authors@R: c(
+    person("Niccolò", "Salvini", , "niccolo@binoocle.net", role = c("aut", "cre")),
+    person("Giuseppe", "Arbia", role = "aut"),
+    person("Vincenzo", "Nardelli", role = "aut")
+  )
+Description: Fits the zero-inflated spatial autoregressive (ZISAR) model for
+    spatial count data with excess zeros. A simultaneous autoregressive (SAR)
+    process on the latent log-mean of a zero-inflated negative binomial
+    model carries spatial spillovers, and unit-level Gaussian random effects
+    absorb residual heterogeneity. An optional reduced-rank SAR field in the
+    zero-inflation predictor captures spatially clustered structural zeros.
+    Parameters are estimated by maximising
+    the Laplace approximation to the marginal likelihood with 'TMB', whose
+    automatic differentiation and sparse matrix algebra make tens of
+    thousands of spatial units feasible. Methods are provided for direct,
+    indirect and total marginal effects, counterfactual prediction,
+    residuals and simulation from the model.
+License: GPL (>= 3)
+URL: https://www.niccolosalvini.me/packages/zisar/, https://github.com/NiccoloSalvini/zisar
+BugReports: https://github.com/NiccoloSalvini/zisar/issues
+Depends:
+    R (>= 4.1.0)
+Imports:
+    Matrix,
+    MASS,
+    methods,
+    stats,
+    TMB,
+    utils
+Suggests:
+    knitr,
+    pscl,
+    rmarkdown,
+    spdep,
+    spelling,
+    testthat (>= 3.0.0)
+LinkingTo:
+    RcppEigen,
+    TMB
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-US
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.1

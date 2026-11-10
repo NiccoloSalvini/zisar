@@ -1,0 +1,274 @@
+---
+title: "Introduction to zisar"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to zisar}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(digits = 4)
+```
+
+Spatial count data often have more zeros than a count distribution allows,
+more variance than the mean, and dependence between neighbouring units: the
+number of solar panels installed in a neighbourhood, of emergency visits from
+a municipality, of firms of a sector in a district. The ZISAR model handles
+the three at once, and **zisar** estimates it by maximum likelihood.
+
+```{r setup}
+library(zisar)
+```
+
+## The model
+
+For \(n\) spatial units linked by a weights matrix \(W\) (row-standardised,
+with zero diagonal), the log-mean of the counts follows a simultaneous
+autoregressive (SAR) process with unit-level random effects,
+
+\[
+\eta = \rho W \eta + X\beta + u, \qquad u \sim N(0, \sigma^2 I),
+\qquad\text{so}\qquad \eta = (I - \rho W)^{-1}(X\beta + u).
+\]
+
+Each count is a *structural zero* with probability \(\pi_i\), and otherwise
+negative binomial with mean \(\mu_i = \exp(\eta_i)\) and shape \(\kappa\):
+
+\[
+y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(\mu_i, \kappa),
+\qquad \mathrm{logit}(\pi_i) = z_i'\gamma.
+\]
+
+The spatial multiplier \((I - \rho W)^{-1}\) acts on the *latent* predictor,
+not on the observed counts, so the model has no endogenous regressor and is
+estimated by maximum likelihood. Overdispersion has three sources: the
+negative binomial shape \(\kappa\), the structural zeros \(\pi_i\) and the
+random effects \(\sigma\). The latent field is integrated out with the
+Laplace approximation in [TMB](https://cran.r-project.org/package=TMB).
+
+This is the *restricted* model: the structural zeros depend on covariates
+only. The *general* model adds a spatial field to the inflation predictor,
+for zeros that cluster in space; see [below](#clustered-structural-zeros).
+
+## Fitting a model
+
+`rzisar()` simulates data on a regular lattice with queen contiguity. Here
+400 units, a spatial parameter of 0.5, two covariates in the count process
+and one in the zero-inflation process:
+
+```{r simulate}
+set.seed(2026)
+sim <- rzisar(20, beta = c(0.5, 0.6, -0.4), rho = 0.5, gamma = c(-1, 0.9),
+              kappa = 2, sigma = 0.4)
+head(sim$data)
+mean(sim$data$y == 0)
+```
+
+`zisar()` takes a two-part formula: the terms before `|` enter the count
+process, those after it the zero-inflation process. `W` can be a base
+matrix, a sparse `Matrix`, or an `spdep` `listw` object, with rows in the
+order of the data.
+
+```{r fit}
+fit <- zisar(y ~ x1 + x2 | z1, data = sim$data, W = sim$W)
+summary(fit)
+```
+
+The estimates are close to the values used in the simulation
+(\(\beta = (0.5, 0.6, -0.4)\), \(\gamma = (-1, 0.9)\), \(\rho = 0.5\),
+\(\kappa = 2\), \(\sigma = 0.4\)). The usual accessors work:
+
+```{r accessors}
+coef(fit)
+sqrt(diag(vcov(fit)))
+logLik(fit)
+AIC(fit)
+```
+
+A formula without `|` uses the same terms in both processes, `y ~ x | 1`
+gives a constant inflation probability, and an `offset()` term in the count
+part enters the log-mean with coefficient one, for exposures:
+`y ~ x1 + offset(log(households)) | z1`.
+
+## Spatial weights from real geography
+
+With polygons, `spdep` builds the weights; pass the `listw` object (or the
+matrix) to `zisar()`. Every unit must have a row in the data: units cannot
+be dropped, because they all enter the spatial multiplier.
+
+```{r spdep, eval = FALSE}
+library(sf)
+library(spdep)
+areas <- st_read("areas.gpkg")
+nb <- poly2nb(areas, queen = TRUE)
+lw <- nb2listw(nb, style = "W", zero.policy = TRUE)
+fit <- zisar(y ~ x1 + x2 | z1, data = areas, W = lw)
+```
+
+## Direct, indirect and total effects
+
+In a spatial model a coefficient is not the effect of its covariate: a
+change in one unit moves the expected count there (direct effect) and, through
+the spatial multiplier, in the other units (indirect effect, or spillover).
+`zisar_effects()` averages them over units, with simulation standard errors:
+
+```{r effects}
+zisar_effects(fit, B = 100)
+```
+
+`z1` acts only through the probability of a structural zero, which concerns
+the unit itself: its indirect effect is zero. A covariate entering both
+processes (the same name in both parts of the formula) combines the two
+channels.
+
+## Counterfactual scenarios
+
+`predict()` gives the fitted means (`type = "response"`), the means of the
+count component (`"count"`), the inflation probabilities (`"zero"`) or the
+latent field (`"eta"`). With `newdata` for the same units it computes a
+scenario: here `x1` rises by one in a single unit, and the expected counts
+of its neighbours rise as well.
+
+```{r predict}
+nd <- sim$data
+nd$x1[190] <- nd$x1[190] + 1
+change <- predict(fit, newdata = nd) - predict(fit)
+round(change[c(190, which(sim$W[190, ] > 0))], 3)
+sum(change)
+```
+
+## Comparing models
+
+`fixed` holds parameters at given values. With \(\rho = 0\) and
+\(\sigma\) close to zero the model reduces to the aspatial zero-inflated
+negative binomial, the same model as `pscl::zeroinfl(dist = "negbin")`:
+
+```{r nested}
+fit_zinb <- zisar(y ~ x1 + x2 | z1, data = sim$data, W = sim$W,
+                  fixed = list(rho = 0, sigma = 0.001))
+AIC(fit_zinb, fit)
+```
+
+The test of \(\rho = 0\) is in the summary (Wald). The aspatial model with
+random effects (`fixed = list(rho = 0)`) is nested in ZISAR, but on
+spatially dependent data it is often not estimable: the random effects have
+to absorb the spatial structure, \(\sigma\) grows, and the Laplace
+approximation breaks down (see below).
+
+## Clustered structural zeros
+
+In the restricted model, structural zeros depend on \(z_i\) only. When
+whole areas are out of the market (a planning restriction, no supplier
+nearby), the zeros cluster beyond what the covariates explain, and the
+inflation predictor needs a spatial structure of its own. `zero_spatial`
+selects it.
+
+The natural choice is a SAR field with one value per unit,
+\(\mathrm{logit}(\pi_i) = z_i'\gamma + g_i\) with
+\(g = (I - \rho_0 W)^{-1} e_0\), \(e_0 \sim N(0, \sigma_0^2 I)\),
+independent of \(u\) (`zero_spatial = "field"`). Its Laplace approximation
+fails: each \(g_i\) is informed by a single outcome that is zero or not, the
+error of the approximation accumulates over the \(n\) values of the field,
+and on data without any field the likelihood-ratio statistic against the
+restricted model can reach the thousands. The package fits it, but does not
+recommend it.
+
+The reduced-rank field (`zero_spatial = "reduced"`) puts the SAR field on
+the \(K\) knots of a lattice instead, \(g = B\alpha\) with
+\(\alpha = (I - \rho_0 W_K)^{-1} e_0\), and spreads each knot value over
+the units nearby through the basis \(B\). Each knot value is informed by
+many units, and the approximation holds. `zisar_basis()` builds the knots
+and the basis from the coordinates of the units and a knot spacing, which
+sets the resolution of the field. Here the data come from a unit-level
+field, and the reduced-rank field on knots four cells apart recovers it:
+
+```{r general}
+set.seed(3)
+sim0 <- rzisar(20, beta = c(1, 0.5), rho = 0.4, gamma = c(-0.5, 0.8),
+               zero_spatial = "field", rho0 = 0.9, sigma0 = 0.6)
+b <- zisar_basis(sim0$coords, h = 4)
+b
+fit_r <- zisar(y ~ x1 | z1, data = sim0$data, W = sim0$W)
+fit_g <- zisar(y ~ x1 | z1, data = sim0$data, W = sim0$W,
+               zero_spatial = "reduced", basis = b)
+summary(fit_g)$spatial
+cor(fit_g$g, sim0$g)
+```
+
+The fit starts from the restricted model: the likelihood of the general
+model is evaluated on a grid of \((\rho_0, \sigma_0)\) with the other
+parameters at the restricted estimates, and the optimiser starts from the
+best point. The grid is kept in `fit_g$field_profile`; a gain that never
+rises above zero means the data hold no field.
+
+The restricted model is the general one with \(\sigma_0 = 0\), on the
+boundary of the parameter space, so the likelihood-ratio statistic has a
+mixture distribution and the \(\chi^2_2\) p-value is conservative:
+
+```{r general-lr}
+lr <- 2 * (logLik(fit_g) - logLik(fit_r))
+pchisq(as.numeric(lr), df = 2, lower.tail = FALSE)
+```
+
+`zero_spatial = "sar"` is a different mechanism, without random effects: a
+SAR filter on the predictor, \(\mathrm{logit}(\pi) = (I - \rho_0 W)^{-1}
+Z\gamma\), so that the inflation covariates of a unit's neighbours shift its
+probability of a structural zero, and `zisar_effects()` reports spillovers
+for them too.
+
+## When the Laplace approximation breaks down
+
+For a zero count, the conditional distribution of \(\eta_i\) can be bimodal:
+the zero is either structural (and \(\mu_i\) can be large) or negative
+binomial (and \(\mu_i\) is small). This produces spurious optima, with a
+huge gradient and sometimes a positive log-likelihood, mostly in small
+samples, with misspecified models (an omitted covariate) and with the
+unit-level inflation field. `zisar()` checks every fit, restarts from other
+values when a check fails, and warns if no clean optimum is found;
+`fit$laplace_ok` records the outcome and `summary()` reports it.
+
+```{r check}
+fit$laplace_ok
+fit$max_grad
+```
+
+A large gradient is not always spurious. When structural zeros occur among
+units of high intensity, the bimodality is part of the model and the
+genuine optimum has a large gradient too. A positive log-likelihood is
+always spurious; a large gradient is told apart by refitting the model to
+data simulated from the fit, which share the gradient if it is genuine.
+Standard errors then come from a parametric bootstrap, with each refit
+started from the estimates:
+
+```{r bootstrap, eval = FALSE}
+st <- list(beta = coef(fit, "count"), gamma = coef(fit, "zero"),
+           rho = fit$rho, kappa = fit$kappa, sigma = fit$sigma)
+ys <- simulate(fit, nsim = 100, seed = 1)
+boot <- sapply(ys, function(y) {
+  d <- sim$data
+  d$y <- y
+  coef(suppressWarnings(zisar(y ~ x1 + x2 | z1, data = d, W = sim$W,
+                              start = st, restarts = FALSE)))
+})
+apply(boot, 1, sd)
+```
+
+## Large data sets
+
+The log-determinant \(\log|I - \rho W|\) is computed from the eigenvalues of
+\(W\) for up to 5000 units, and from a sparse Cholesky factorisation beyond
+(`logdet = "sparse"`), which keeps memory and time manageable for tens of
+thousands of units. `zisar_effects()` never forms the dense
+\(n \times n\) multiplier either.
+
+```{r large, eval = FALSE}
+fit <- zisar(y ~ x1 + x2 | z1, data = big, W = W_big, logdet = "sparse")
+```
+
+## Reference
+
+Salvini, N., Arbia, G. and Nardelli, V. (2026). ZISAR: A zero-inflated
+spatial autoregressive model for count data with random effects. Working
+paper, Università Cattolica del Sacro Cuore.

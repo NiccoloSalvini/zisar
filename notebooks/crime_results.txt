@@ -1,0 +1,263 @@
+=== Shoplifting, England, Jul 2016 - Jun 2019: n = 32322  offences 1034172  zeros 10959 
+
+--- Fit of the six specifications (expected zeros marginal; observed 10959 ) ---
+           logLik  k    AIC    BIC exp_zeros
+NB        -103707  8 207430 207497     10632
+ZINB      -103020 12 206065 206165     11462
+SAR-NB    -103696  9 207410 207485     10632
+ZINB-RE   -101473 13 202972 203082     10990
+SAR-NB-RE -101865 10 203750 203834     10276
+ZISAR     -101473 14 202974 203092     10990
+LR rho = 0 (ZISAR vs ZINB-RE): 0.00; LR pi = 0 (ZISAR vs SAR-NB-RE): 783.4 on 4 restrictions
+expected structural zeros: ZINB 5276, ZINB-RE 4953, ZISAR 4953
+
+--- Moran's I (normal approximation) ---
+                I      z
+counts      0.097 28.884
+NB          0.015  4.381
+ZINB        0.017  4.988
+SAR-NB      0.015  4.573
+ZISAR u_hat 0.030  8.939
+
+--- NB ---
+            Estimate Std. Error z value Pr(>|z|)
+(Intercept)   -2.671      0.402  -6.650    0.000
+retail_jobs    0.517      0.006  80.668    0.000
+other_jobs     0.203      0.010  19.495    0.000
+pop           -0.044      0.056  -0.784    0.433
+density        0.326      0.007  44.246    0.000
+income_dep     3.557      0.178  19.961    0.000
+social        -0.453      0.095  -4.782    0.000
+theta = 0.3312 
+
+--- ZINB ---
+$count
+            Estimate Std. Error z value Pr(>|z|)
+(Intercept)   -2.214      0.355  -6.241    0.000
+retail_jobs    0.458      0.006  80.230    0.000
+other_jobs     0.202      0.010  20.693    0.000
+pop           -0.044      0.050  -0.869    0.385
+density        0.317      0.009  36.735    0.000
+income_dep     3.088      0.176  17.578    0.000
+social        -0.368      0.095  -3.887    0.000
+Log(theta)    -0.844      0.012 -72.227    0.000
+
+$zero
+            Estimate Std. Error z value Pr(>|z|)
+(Intercept)    3.811      0.229  16.656        0
+no_retail     -3.387      0.171 -19.843        0
+retail_jobs   -1.757      0.068 -25.687        0
+density       -0.125      0.022  -5.591        0
+
+theta = 0.43 
+
+--- SAR-NB (instrumented W y) ---
+            Estimate Std. Error z value Pr(>|z|)
+(Intercept)   -2.197      0.414  -5.303    0.000
+retail_jobs    0.519      0.006  80.966    0.000
+other_jobs     0.180      0.011  15.691    0.000
+pop           -0.081      0.057  -1.429    0.153
+density        0.311      0.008  39.160    0.000
+income_dep     3.403      0.182  18.733    0.000
+social        -0.441      0.095  -4.654    0.000
+Wy_hat         0.001      0.000   4.718    0.000
+theta = 0.3315 
+
+--- ZINB-RE (rho = 0): convergence 0 ---
+          estimate    se       z p_value
+beta_0      -3.836 0.429  -8.949   0.000
+beta_1       0.659 0.009  76.383   0.000
+beta_2       0.186 0.012  16.098   0.000
+beta_3       0.049 0.060   0.824   0.410
+beta_4       0.298 0.011  28.360   0.000
+beta_5       3.045 0.192  15.824   0.000
+beta_6      -0.148 0.103  -1.433   0.152
+gamma_0      2.952 0.214  13.793   0.000
+gamma_1     -3.133 0.155 -20.191   0.000
+gamma_2     -1.295 0.052 -24.996   0.000
+gamma_3     -0.126 0.024  -5.273   0.000
+log_kappa   -0.230 0.024  -9.385   0.000
+log_sigma    0.005 0.013   0.399   0.690
+      estimate     se
+rho     0.0000 0.0000
+kappa   0.7948 0.0194
+sigma   1.0051 0.0129
+
+--- SAR-NB-RE (pi = 0): convergence 0 ---
+          estimate    se       z p_value
+beta_0      -4.981 0.453 -10.996   0.000
+beta_1       0.734 0.007  98.438   0.000
+beta_2       0.218 0.012  17.603   0.000
+beta_3       0.088 0.063   1.402   0.161
+beta_4       0.320 0.010  33.409   0.000
+beta_5       3.609 0.207  17.473   0.000
+beta_6      -0.193 0.108  -1.785   0.074
+rho_raw      0.007 0.013   0.516   0.606
+log_kappa   -0.531 0.017 -31.743   0.000
+log_sigma    0.079 0.013   6.127   0.000
+      estimate     se
+rho     0.0069 0.0133
+kappa   0.5882 0.0098
+sigma   1.0817 0.0139
+
+--- Restricted ZISAR (convergence 0 , max gradient 0.00622 , 0.9 min) ---
+                 estimate    se       z p_value
+intercept          -3.834 0.434  -8.831   0.000
+retail_jobs         0.659 0.009  76.289   0.000
+other_jobs          0.186 0.012  15.304   0.000
+pop                 0.049 0.060   0.818   0.413
+density             0.298 0.011  26.527   0.000
+income_dep          3.044 0.197  15.470   0.000
+social             -0.148 0.104  -1.427   0.154
+zero:intercept      2.952 0.214  13.793   0.000
+zero:no_retail     -3.133 0.155 -20.188   0.000
+zero:retail_jobs   -1.295 0.052 -24.994   0.000
+zero:density       -0.126 0.024  -5.273   0.000
+rho_raw             0.000 0.014   0.026   0.979
+log_kappa          -0.230 0.024  -9.377   0.000
+log_sigma           0.005 0.013   0.394   0.693
+      estimate     se
+rho     0.0004 0.0143
+kappa   0.7948 0.0195
+sigma   1.0051 0.0129
+loglik -101473.2 AIC 202974.5 BIC 203091.9; expected structural zeros 4953, posterior sum 4694
+
+--- With police-force fixed effects (convergence 0 , max gradient 0.311 ) ---
+                 estimate    se       z p_value
+intercept          -5.273 0.431 -12.227   0.000
+retail_jobs         0.628 0.008  80.963   0.000
+other_jobs          0.226 0.012  18.938   0.000
+pop                 0.058 0.058   0.985   0.325
+density             0.382 0.011  34.619   0.000
+income_dep          2.125 0.212  10.003   0.000
+social              0.156 0.107   1.466   0.143
+zero:intercept      2.878 0.230  12.538   0.000
+zero:no_retail     -2.799 0.137 -20.422   0.000
+zero:retail_jobs   -1.280 0.047 -27.203   0.000
+zero:density       -0.120 0.022  -5.560   0.000
+rho_raw             0.008 0.014   0.593   0.553
+log_kappa          -0.153 0.024  -6.301   0.000
+log_sigma          -0.040 0.014  -2.957   0.003
+      estimate     se
+rho     0.0082 0.0137
+kappa   0.8580 0.0209
+sigma   0.9606 0.0130
+loglik -100702.0; LR force effects 1542.6 on 74 df; expected structural zeros 5729
+
+--- Score-type test of the zero regime (Moran's I of r, bootstrap B = 200 ) ---
+zisar 
+          england london outside
+obs        0.0196 0.0125  0.0189
+null_mean  0.0004 0.0011  0.0002
+null_sd    0.0034 0.0082  0.0037
+z          5.5886 1.3833  5.0326
+p          0.0050 0.1095  0.0050
+force 
+          england  london outside
+obs       -0.0021  0.0085 -0.0036
+null_mean  0.0002 -0.0009  0.0003
+null_sd    0.0034  0.0079  0.0038
+z         -0.6955  1.1881 -1.0324
+p          0.7363  0.1144  0.8557
+
+--- Reduced-rank field, 10 km knots (K = 1499 ) ---
+zisar: LR 401.9 rho0 0.469 sigma0 1.251 rho -0.013 kappa 0.81 conv 0 max_grad 0.164 sd(g_hat) 0.777 (2.1 min)
+      sigma0
+rho0     0.1   0.3   0.6     1     2
+  0      7.1  45.3 103.4 155.1 184.7
+  0.5   17.4  82.0 148.1 184.5 161.2
+  0.8   44.3 130.9 177.1 178.3  99.7
+  0.9   69.8 150.5 173.2 155.1  52.4
+  0.95  90.1 153.9 159.4 130.5  14.1
+force: LR 12.9 rho0 0.000 sigma0 0.725 rho 0.006 kappa 0.86 conv 0 max_grad 10.4 sd(g_hat) 0.212 (3.0 min)
+      sigma0
+rho0      0.1    0.3    0.6      1      2
+  0       0.2    1.7    4.3    0.0  -50.6
+  0.5    -0.8   -1.9   -6.1  -25.0 -110.6
+  0.8    -4.9  -14.1  -34.4  -75.3 -197.5
+  0.9   -11.8  -29.5  -62.4 -115.0 -255.9
+  0.95  -21.4  -47.1  -89.1 -148.4 -300.2
+R2 of g_hat on police force: 0.654 without, 0.205 with force effects
+
+force means of g_hat, zero share and rate per 1,000 residents:
+                            force units  zero per_1000      g struct
+1             Durham Constabulary   382 0.118    22.21 -2.031  17.33
+2              Northumbria Police   909 0.265    29.89 -1.856 100.81
+3                Cleveland Police   345 0.261    43.00 -1.702  36.69
+4                   Surrey Police   709 0.124    11.64 -1.658  36.47
+5             Bedfordshire Police   376 0.218    19.12 -1.327  34.54
+6       Greater Manchester Police  1640 0.268    20.12 -0.854 191.69
+7          South Yorkshire Police   840 0.283    23.86 -0.850 103.82
+8             Warwickshire Police   332 0.340    18.54 -0.448  47.71
+9           West Yorkshire Police  1370 0.306    24.07 -0.390 188.29
+10           Cumbria Constabulary   321 0.327    16.88 -0.343  39.59
+11               Wiltshire Police   398 0.354    18.55 -0.289  55.97
+12          Leicestershire Police   605 0.316    18.79 -0.271  84.46
+13              Humberside Police   577 0.326    30.57 -0.244  78.03
+14                  Dorset Police   443 0.312    16.23 -0.218  57.82
+15            Lincolnshire Police   412 0.354    22.44 -0.164  60.70
+16    Cambridgeshire Constabulary   467 0.362    18.00 -0.162  71.65
+17         Hampshire Constabulary  1171 0.348    20.16 -0.094 165.12
+18             West Mercia Police   775 0.387    17.85 -0.075 123.83
+19        Derbyshire Constabulary   633 0.374    18.07 -0.073  99.92
+20        Northamptonshire Police   406 0.360    19.78 -0.060  60.59
+21              Merseyside Police   897 0.307    19.46 -0.058 119.62
+22 Avon and Somerset Constabulary   975 0.364    19.64 -0.012 146.58
+23                    Kent Police  1043 0.349    21.09  0.003 155.84
+24           Staffordshire Police   683 0.400    12.86  0.014 108.99
+25                   Essex Police  1061 0.383    18.04  0.050 169.06
+26         Nottinghamshire Police   666 0.353    28.12  0.053 103.47
+27         North Yorkshire Police   488 0.395    17.02  0.098  76.23
+28           Suffolk Constabulary   422 0.374    16.47  0.107  63.59
+29           Norfolk Constabulary   529 0.412    14.91  0.241  92.08
+30     Hertfordshire Constabulary   682 0.377    22.64  0.246 109.05
+31        Devon & Cornwall Police  1030 0.402    13.05  0.302 171.21
+32           West Midlands Police  1663 0.343    21.07  0.324 260.39
+33        Lancashire Constabulary   937 0.353    18.13  0.398 136.62
+34    Metropolitan Police Service  4748 0.328    17.34  0.435 731.35
+35   Gloucestershire Constabulary   367 0.433    16.78  0.452  66.45
+36           Thames Valley Police  1381 0.436    17.67  0.482 252.42
+37          Cheshire Constabulary   646 0.402    19.55  0.604 103.80
+38                  Sussex Police   993 0.413    15.05  0.636 172.54
+
+--- Simulated data (real design): restricted fit, then reduced-rank profile ---
+none: zeros 10962 structural 4900 sd(g) 0.00 | restricted conv 0 max_grad 0.159 | field LR -0.0 rho0 0.000 sigma0 0.001 conv 0 max_grad 0.0159 cor(g_hat, g) NA
+      sigma0
+rho0      0.1    0.3    0.6      1      2
+  0      -0.2   -1.6   -6.3  -18.9  -77.1
+  0.5    -0.9   -5.8  -17.7  -42.7 -133.4
+  0.8    -4.1  -17.8  -44.9  -90.4 -219.4
+  0.9    -9.3  -32.2  -71.7 -130.3 -275.2
+  0.95  -17.0  -49.0  -98.4 -164.7 -318.4
+  unit-level field on the same data: LR 2089.0 rho0 -0.084 sigma0 2.474 conv 1 (false convergence (8)) max_grad 1.17e+08
+      sigma0
+rho0       0.1     0.3     0.6       1       2
+  0        0.4     4.2    23.2    85.2  -324.6
+  0.5      0.4     4.7    26.7    69.5 -1220.1
+  0.8      0.6     7.1    15.8  -233.3 -2517.5
+  0.9      0.6     5.1  -105.5  -666.4 -3266.2
+  0.95    -0.2   -30.7  -317.7 -1055.2 -3852.9
+smooth: zeros 10944 structural 4827 sd(g) 0.85 | restricted conv 0 max_grad 0.029 | field LR 465.7 rho0 0.816 sigma0 0.758 conv 0 max_grad 0.924 cor(g_hat, g) 0.878
+      sigma0
+rho0     0.1   0.3   0.6     1     2
+  0      5.0  38.8 107.1 170.8 198.6
+  0.5   12.5  81.1 172.1 217.0 185.2
+  0.8   36.5 158.0 224.0 221.5 129.6
+  0.9   69.3 196.2 226.5 200.2  82.9
+  0.95 105.5 207.6 214.2 175.1  44.5
+step: zeros 10946 structural 4920 sd(g) 0.61 | restricted conv 0 max_grad 0.0729 | field LR 285.9 rho0 0.902 sigma0 0.403 conv 0 max_grad 0.108 cor(g_hat, g) 0.814
+      sigma0
+rho0     0.1   0.3   0.6     1     2
+  0      4.0  28.9  74.4 111.5 106.1
+  0.5   11.2  62.4 115.8 131.2  74.8
+  0.8   36.1 115.1 139.1 115.8   8.9
+  0.9   66.9 136.9 131.4  88.4 -38.1
+  0.95  96.4 140.0 114.6  60.9 -77.6
+unit: zeros 11657 structural 5834 sd(g) 0.99 | restricted conv 0 max_grad 0.0318 | field LR 60.9 rho0 0.000 sigma0 1.071 conv 0 max_grad 9.12 cor(g_hat, g) 0.260
+      sigma0
+rho0      0.1    0.3    0.6      1      2
+  0       1.4    9.6   22.5   29.6    0.1
+  0.5     2.7   14.4   24.4   18.3  -49.7
+  0.8     5.4   17.4   11.6  -19.6 -129.8
+  0.9     6.9   11.6  -10.2  -56.1 -184.0
+  0.95    6.4   -1.1  -34.5  -88.8 -226.0

@@ -14,6 +14,8 @@
 \usepackage{setspace}
 \onehalfspacing
 \usepackage{parskip}
+\usepackage{microtype}
+\setlength{\emergencystretch}{2.5em} % let TeX stretch spaces rather than overflow the margin
 
 % --- Graphics and tables ---
 \usepackage{graphicx}
@@ -22,6 +24,9 @@
 \usepackage{float}
 \usepackage{caption}
 \usepackage{subcaption}
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75} % a large figure goes on top of a text page rather than on a page of its own
 
 % --- Hyperlinks ---
 \usepackage[colorlinks=true,citecolor=blue,linkcolor=blue,urlcolor=blue]{hyperref}
@@ -50,6 +55,7 @@
 \newcommand{\bW}{\mathbf{W}}
 \newcommand{\bX}{\mathbf{X}}
 \newcommand{\bZ}{\mathbf{Z}}
+\newcommand{\bH}{\mathbf{H}}
 \newcommand{\by}{\mathbf{y}}
 \newcommand{\bv}{\mathbf{v}}
 \newcommand{\bu}{\mathbf{u}}
@@ -65,14 +71,14 @@
 \DeclareMathOperator{\tr}{tr}
 
 % =============================================================================
-\title{ZISAR: A Zero-Inflated Spatial Autoregressive Model\\for Count Data with Random Effects}
+\title{ZISAR: A Zero-Inflated Spatial Autoregressive\\Model for Count Data with Random Effects}
 
 \author{
-  Niccol\`{o} Salvini\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Milan, Italy.}
+  Niccol\`{o} Salvini\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Italy.}
   \and
-  Giuseppe Arbia\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Milan, Italy.}
+  Giuseppe Arbia\footnotemark[1]
   \and
-  Vincenzo Nardelli\thanks{Department of Statistical Sciences, Universit\`{a} Cattolica del Sacro Cuore, Rome, Italy.}
+  Vincenzo Nardelli\footnotemark[1]
 }
 
 \date{\today}
@@ -86,7 +92,7 @@
 \input{abstract}
 \end{abstract}
 
-\noindent\textbf{Keywords:} Spatial autoregression; zero-inflated models; count data; negative binomial; random effects; two-step estimation; spatial spillovers.
+\noindent\textbf{Keywords:} Spatial autoregression; zero-inflated models; count data; negative binomial; random effects; two-step estimation; spatial spillovers; solar photovoltaic adoption.
 
 \bigskip
 
@@ -100,7 +106,8 @@
 
 \input{montecarlo}
 
-\input{application}
+\input{application_solar}
+
 
 \input{conclusion}
 

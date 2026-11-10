@@ -6,6 +6,7 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24118297.svg)](https://doi.org/10.5281/zenodo.24118297)
 <!-- badges: end -->
 
 **zisar** fits the zero-inflated spatial autoregressive (ZISAR) model
@@ -108,5 +109,6 @@ structural zeros and large data sets.
 ## Citation
 
 Salvini N, Arbia G, Nardelli V (2026). “ZISAR: A Zero-Inflated Spatial
-Autoregressive Model for Count Data with Random Effects.” Working paper,
-Università Cattolica del Sacro Cuore.
+Autoregressive Model for Count Data with Random Effects.” Preprint,
+Zenodo. doi:10.5281/zenodo.24118297
+<https://doi.org/10.5281/zenodo.24118297>.

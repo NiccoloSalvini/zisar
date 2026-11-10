@@ -13,16 +13,27 @@ The Monte~Carlo study confirmed that ignoring either spatial dependence or zero-
 ZISAR recovers the data-generating parameters with low bias and an RMSE that decreases with $n$.
 A second experiment showed that residual-based Moran tests can miss spatial dependence that the likelihood detects.
 
-The application to domestic solar PV adoption in England after the 2016 reform of the Feed-in Tariff took the estimator to $n = 32{,}322$ small areas, where a fit takes a few minutes on a laptop.
-ZISAR found strong spatial dependence in the latent propensity to adopt ($\hat\rho = 0.63$), attributed about one tenth of the 10{,}442 zeros to a structural regime confined to flat-dominated urban cores---a classification that agrees with the areas' adoption history before the reform, which the model does not use---and dominated every competitor in AIC and BIC.
-It also showed what is lost by ignoring space: the aspatial models credit social renting and households with children with effects that disappear or reverse once the spatial clustering of adoption is modelled, while a richer set of socio-economic and structural covariates, which improves the aspatial fits, adds little to ZISAR and leaves $\hat\rho$ unchanged.
-The application also brought out a practical point for zero-inflated models of administrative counts: a mismatch between the geography of the register and that of the covariates creates artificial zeros, which must be removed before the zero process can be interpreted.
+The application took the estimator to the $n = 32{,}322$ small areas of England, where a fit takes five to six minutes on a laptop.
+On domestic solar PV installations during the boom of the Feed-in Tariff, before the tariff cut of 2016, it needs both parts of the restricted model.
+Adoption is strongly dependent in space ($\hat\rho = 0.63$, likelihood ratio 8{,}463 against the ZINB with random effects), and zero-inflation remains needed once the spatial field is in (likelihood ratio 552 against the SAR-NB-RE), so that ZISAR has the lowest AIC and BIC of six specifications.
+The structural zeros follow the housing stock: nearly half of the observed zeros are structural, three quarters of them are in Greater London, and their posterior probabilities are higher where areas remained without installations after the cut, which the model does not use.
+The aspatial models read the common clustering of tenure, property value and adoption as effects of the covariates, which shrink by an order of magnitude in ZISAR, and they have no counterpart to the indirect effects, which are about 60\% of every total effect.
+The window is chosen so that zeros are informative: during the boom so many installations are expected in most areas that a zero is improbable under the count process, whereas after the cut, with one or two installations per area, a spatially dependent count process reproduces clusters of zeros as sampling zeros.
+The same high intensities make the Laplace objective non-smooth, and the optimiser stops with a large gradient at an optimum that a simulation from the fitted model shows to be genuine; a parametric bootstrap provides the standard errors.
+
+The general model, with a spatial field in the inflation predictor, is not needed in this application, since the covariates explain where the structural zeros are.
+Where it is, the simulations of Appendix~\ref{app:general} show that it should be estimated with a reduced-rank field on a lattice of knots, which the Laplace approximation handles, rather than with a field of one element per unit, which produces likelihood-ratio statistics in the thousands on data that contain no field at all.
 
 \paragraph{Limitations.}
-Three limitations warrant acknowledgement.
+Four limitations warrant acknowledgement.
 First, the Laplace approximation may lose accuracy when the conditional posterior of $\boldsymbol{\eta}$ is highly non-Gaussian (e.g.\ for very sparse data with many zero counts); higher-order Laplace corrections or adaptive quadrature could improve precision in such settings.
+With the unit-level field of the general model it produced spurious optima, with gradients of order $10^8$ at the stopping point and log-likelihoods thousands of points above their true value (Appendix~\ref{app:general}).
+A large gradient at the stopping point flags them but is not specific: with structural zeros among units of high intensity, as in the solar application, the conditional posterior of $\eta_i$ of a zero unit has two modes and the optimiser stops with a large gradient at a genuine optimum, so that a simulation from the fitted model is needed to tell the two cases apart, and a parametric bootstrap replaces the Hessian standard errors.
 Second, the unit-level random effects $\bu$ are assumed independent Gaussian; correlated or non-Gaussian specifications would add flexibility at the cost of a more complex \texttt{TMB} template.
 Third, the eigenvalue pre-computation for the log-determinant $\log|\det(\mathbf{I}-\rho\bW)|$ is $O(n^3)$; the sparse-Cholesky alternative of \eqref{eq:logdet_sparse} removes this bottleneck at the national scale of the application, but its cost grows with the fill-in of the Cholesky factor, so that for dense weights matrices or $n$ in the millions stochastic log-determinant approximations \citep[e.g.][]{barry_pace1999} would be needed.
+Fourth, the general specification with a unit-level field in the inflation predictor is poorly served by the Laplace approximation: each element of the field is informed by a single outcome that is zero or not, the approximation error accumulates over the units, and on data generated without a field the approximate likelihood-ratio statistic runs into the thousands.
+The reduced-rank field on a lattice of knots removes the failure and is estimated without difficulty on simulated data at the national scale, at the price of a resolution set by the knot spacing: a field whose variance lies below the spacing is detected but not reconstructed (Appendix~\ref{app:general}), and as the spacing falls towards the size of the units the unit-level case and its failure return.
+Simulation-based inference on the same \texttt{TMB} template, such as Hamiltonian Monte Carlo, remains the route to a unit-level field.
 
 \paragraph{Extensions.}
 Several directions for future research emerge naturally.

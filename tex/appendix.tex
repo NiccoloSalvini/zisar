@@ -18,8 +18,7 @@ Combined with the vanishing Laplace error, $\sup_{\btheta\in\Theta}|n^{-1}\ell_{
 \paragraph{Identification.}
 By Assumption~\ref{ass:identification}, $Q(\btheta)$ has a unique maximum at $\btheta_0$.
 
-\paragraph{Conclusion.}
-Compactness of $\Theta$, uniform convergence, and identifiable uniqueness satisfy the conditions of the extremum-estimator theorem, giving $\hat{\btheta}_n \plim \btheta_0$.
+Finally, compactness of $\Theta$, uniform convergence, and identifiable uniqueness satisfy the conditions of the extremum-estimator theorem, giving $\hat{\btheta}_n \plim \btheta_0$.
 \hfill$\square$
 
 % ---------------------------------------------------------------------------
@@ -52,8 +51,7 @@ By the uniform LLN,
 which is negative definite by Assumption~\ref{ass:identification}.
 Under standard regularity (information matrix equality), $\mathcal{H}_0 = -\mathcal{I}(\btheta_0) = -\boldsymbol{\Omega}_0$.
 
-\paragraph{Combining.}
-Rearranging the score expansion:
+Combining these results and rearranging the score expansion,
 \[
   \sqrt{n}(\hat{\btheta} - \btheta_0) = -\mathcal{H}_0^{-1}\;n^{-1/2}\sum_i s_i(\btheta_0) + o_p(1) \dlim N\!\bigl(\mathbf{0},\,\mathcal{I}(\btheta_0)^{-1}\bigr).
 \]
@@ -88,52 +86,158 @@ For $\rho \neq 0$, $\mathbf{S}(\rho)$ has positive off-diagonal elements (since 
 \hfill$\square$
 
 % =============================================================================
-\section{Sensitivity Analysis}\label{app:sensitivity}
+\section{Monte Carlo Tables}\label{app:mc}
 
-Table~\ref{tab:sensitivity_W} reports the ZISAR estimates of the application (Section~\ref{sec:application}) under alternative spatial weights: the row-standardised queen-contiguity matrix of the main specification and the 6- and 10-nearest-neighbour matrices built on the population-weighted centroids of the LSOAs.
-The spatial parameter, the inflation coefficients and the signs of all significant count coefficients are stable; the 10-nearest-neighbour matrix has the lowest AIC, and the shape parameter $\kappa$ is at the upper bound of the optimisation box in all three fits.
+Tables~\ref{tab:mc_beta}--\ref{tab:mc_kappa} report the results of the experiment of Section~\ref{sec:montecarlo} for three of the five values of~$\rho$; the summaries for all fifteen scenarios are produced by \texttt{mc\_figure.r}.
 
 \begin{table}[htbp]
 \centering
-\caption{Sensitivity of the ZISAR estimates to the choice of spatial weights ($n = 32{,}322$). Standard errors of $\hat\rho$ and $\hat\sigma$ in parentheses.}\label{tab:sensitivity_W}
-\small
-\begin{tabular}{lccc}
+\caption{Monte Carlo bias and RMSE of $\hat{\beta}_1$ ($\beta_1^0 = 0.8$) and $\hat{\beta}_2$ ($\beta_2^0 = -0.5$), $R=1{,}000$ replications per scenario. The ZISAR summaries exclude the fits with $\hat\kappa > 100$ and use 810--963 fits per scenario.}\label{tab:mc_beta}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ll rrr rrr rrr}
 \toprule
- & Queen & $k$-NN ($k=6$) & $k$-NN ($k=10$) \\
+& & \multicolumn{3}{c}{$\rho=0$} & \multicolumn{3}{c}{$\rho=0.3$} & \multicolumn{3}{c}{$\rho=0.6$} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
+& Model & $n{=}100$ & $n{=}225$ & $n{=}400$ & $n{=}100$ & $n{=}225$ & $n{=}400$ & $n{=}100$ & $n{=}225$ & $n{=}400$ \\
 \midrule
-$\hat{\rho}$                & 0.628 (0.010) & 0.579 (0.009) & 0.630 (0.009) \\
-$\hat{\sigma}$              & 0.553 (0.007) & 0.583 (0.006) & 0.585 (0.006) \\
-\multicolumn{4}{l}{\textit{Count process}} \\
-\quad Social rented         & $-0.037$ & $-0.028$ & $-0.043$ \\
-\quad Income deprivation    & 0.008  & $-0.001$ & 0.014 \\
-\quad Managerial            & $-0.026$ & $-0.030$ & $-0.026$ \\
-\quad Aged 65+              & $-0.020$ & $-0.022$ & $-0.030$ \\
-\quad Children              & 0.000  & $-0.003$ & $-0.003$ \\
-\quad Households (log)      & 0.150  & 0.162  & 0.159 \\
-\quad Detached              & 0.095  & 0.112  & 0.106 \\
-\quad Bands E--H            & 0.035  & 0.032  & 0.041 \\
-\quad Off gas               & 0.057  & 0.067  & 0.070 \\
-\quad Electricity 2010 (log) & $-0.024$ & $-0.032$ & $-0.029$ \\
-\quad Northing              & $-0.020$ & $-0.033$ & $-0.025$ \\
-\quad Flats                 & $-0.073$ & $-0.094$ & $-0.074$ \\
-\quad Density (log)         & $-0.092$ & $-0.137$ & $-0.132$ \\
-\quad Private rented        & $-0.043$ & $-0.040$ & $-0.047$ \\
-\quad Communal              & 0.012  & 0.016  & 0.016 \\
-\quad No usual resident     & 0.012  & 0.015  & 0.009 \\
-\quad Built before 1919     & $-0.031$ & $-0.030$ & $-0.031$ \\
-\multicolumn{4}{l}{\textit{Inflation process}} \\
-\quad Flats                 & 1.806  & 1.988  & 1.863 \\
-\quad Density (log)         & 1.121  & 1.137  & 1.114 \\
-\quad Private rented        & $-0.072$ & $-0.082$ & $-0.068$ \\
-\quad Communal              & 0.061  & 0.067  & 0.067 \\
-\quad No usual resident     & $-0.032$ & $-0.024$ & $-0.021$ \\
-\quad Built before 1919     & $-0.414$ & $-0.390$ & $-0.391$ \\
+\multicolumn{11}{l}{\emph{Panel A: $\hat{\beta}_1$}} \\[3pt]
+\multirow{3}{*}{Bias}
+  & ZISAR    & $-0.019$ & $-0.005$ & $-0.001$ & $-0.013$ & $0.002$ & $0.000$ & $-0.007$ & $-0.004$ & $0.001$ \\
+  & SAR-NB   & $-0.009$ & $-0.004$ & $-0.002$ & $-0.010$ & $-0.000$ & $-0.000$ & $-0.004$ & $-0.003$ & $0.002$ \\
+  & ZINB     & $0.001$ & $0.001$ & $0.004$ & $0.008$ & $0.019$ & $0.015$ & $0.056$ & $0.057$ & $0.066$ \\
+[3pt]
+\multirow{3}{*}{RMSE}
+  & ZISAR    & $0.188$ & $0.110$ & $0.083$ & $0.173$ & $0.112$ & $0.080$ & $0.163$ & $0.101$ & $0.079$ \\
+  & SAR-NB   & $0.184$ & $0.113$ & $0.086$ & $0.177$ & $0.120$ & $0.084$ & $0.177$ & $0.117$ & $0.090$ \\
+  & ZINB     & $0.175$ & $0.107$ & $0.083$ & $0.170$ & $0.113$ & $0.082$ & $0.185$ & $0.128$ & $0.111$ \\
 \midrule
-Log-likelihood              & $-53060$ & $-53111$ & $-52998$ \\
-AIC                         & 106176 & 106278 & 106052 \\
+\multicolumn{11}{l}{\emph{Panel B: $\hat{\beta}_2$}} \\[3pt]
+\multirow{3}{*}{Bias}
+  & ZISAR    & $0.008$ & $0.000$ & $0.000$ & $0.003$ & $0.008$ & $0.005$ & $0.003$ & $-0.003$ & $0.001$ \\
+  & SAR-NB   & $0.002$ & $-0.003$ & $0.001$ & $0.004$ & $0.010$ & $0.004$ & $0.005$ & $-0.001$ & $0.001$ \\
+  & ZINB     & $-0.003$ & $-0.006$ & $-0.002$ & $-0.007$ & $-0.001$ & $-0.006$ & $-0.033$ & $-0.040$ & $-0.041$ \\
+[3pt]
+\multirow{3}{*}{RMSE}
+  & ZISAR    & $0.168$ & $0.108$ & $0.078$ & $0.159$ & $0.105$ & $0.073$ & $0.152$ & $0.091$ & $0.072$ \\
+  & SAR-NB   & $0.176$ & $0.110$ & $0.080$ & $0.168$ & $0.111$ & $0.080$ & $0.176$ & $0.107$ & $0.084$ \\
+  & ZINB     & $0.165$ & $0.107$ & $0.079$ & $0.161$ & $0.104$ & $0.075$ & $0.176$ & $0.116$ & $0.091$ \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Monte Carlo bias and RMSE of $\hat{\rho}$, $R=1{,}000$ replications per scenario. The ZINB does not estimate~$\rho$.}\label{tab:mc_rho}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ll rrr rrr rrr}
+\toprule
+& & \multicolumn{3}{c}{$\rho=0$} & \multicolumn{3}{c}{$\rho=0.3$} & \multicolumn{3}{c}{$\rho=0.6$} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
+& Model & $n{=}100$ & $n{=}225$ & $n{=}400$ & $n{=}100$ & $n{=}225$ & $n{=}400$ & $n{=}100$ & $n{=}225$ & $n{=}400$ \\
+\midrule
+\multirow{2}{*}{Bias}
+  & SAR-NB   & $0.063$ & $0.011$ & $0.005$ & $-0.160$ & $-0.174$ & $-0.182$ & $-0.467$ & $-0.477$ & $-0.482$ \\
+  & ZISAR    & $-0.022$ & $-0.048$ & $-0.029$ & $-0.024$ & $-0.019$ & $-0.002$ & $-0.021$ & $-0.013$ & $-0.002$ \\
+[3pt]
+\multirow{2}{*}{RMSE}
+  & SAR-NB   & $0.253$ & $0.161$ & $0.115$ & $0.244$ & $0.204$ & $0.196$ & $0.477$ & $0.480$ & $0.484$ \\
+  & ZISAR    & $0.433$ & $0.311$ & $0.227$ & $0.338$ & $0.228$ & $0.161$ & $0.229$ & $0.127$ & $0.087$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Monte Carlo median bias of $\hat{\kappa}$ ($\kappa^0=2$) and median log-likelihood, $R=1{,}000$ replications per scenario.}\label{tab:mc_kappa}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ll rrr rrr rrr}
+\toprule
+& & \multicolumn{3}{c}{$\rho=0$} & \multicolumn{3}{c}{$\rho=0.3$} & \multicolumn{3}{c}{$\rho=0.6$} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
+& Model & $n{=}100$ & $n{=}225$ & $n{=}400$ & $n{=}100$ & $n{=}225$ & $n{=}400$ & $n{=}100$ & $n{=}225$ & $n{=}400$ \\
+\midrule
+\multicolumn{11}{l}{\emph{Panel A: Median bias of $\hat{\kappa}$}} \\[3pt]
+  & ZISAR    & $-0.452$ & $-0.511$ & $-0.565$ & $-0.403$ & $-0.523$ & $-0.496$ & $-0.422$ & $-0.353$ & $-0.340$ \\
+  & SAR-NB   & $-1.402$ & $-1.428$ & $-1.438$ & $-1.418$ & $-1.448$ & $-1.460$ & $-1.493$ & $-1.511$ & $-1.517$ \\
+  & ZINB     & $-0.700$ & $-0.787$ & $-0.860$ & $-0.714$ & $-0.870$ & $-0.896$ & $-0.980$ & $-1.069$ & $-1.103$ \\
+\midrule
+\multicolumn{11}{l}{\emph{Panel B: Median log-likelihood}} \\[3pt]
+  & ZISAR    & $-159$ & $-364$ & $-649$ & $-175$ & $-397$ & $-711$ & $-214$ & $-491$ & $-872$ \\
+  & SAR-NB   & $-162$ & $-369$ & $-656$ & $-178$ & $-403$ & $-719$ & $-221$ & $-500$ & $-889$ \\
+  & ZINB     & $-160$ & $-365$ & $-650$ & $-176$ & $-399$ & $-713$ & $-220$ & $-499$ & $-887$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\clearpage
+
+\section{Spatial Inflation Predictor: Simulation Checks}\label{app:general}
+
+To assess the Laplace-approximate estimator of the general ZISAR (Section~\ref{sec:model_spec}), we simulate from it on regular lattices with row-standardised queen contiguity, 24 replications for each of $n = 900$, 3600 and 10{,}000, with two i.i.d.\ $N(0,1)$ count covariates, one inflation covariate, $\bbeta = (1,\, 0.5,\, -0.3)'$, $\rho = 0.4$, $\sigma = 0.5$, $\kappa = 2$, $\bgamma = (-1,\, 0.8)'$, $\rho_0 = 0.6$ and $\sigma_0 = 1$.
+About 40\% of the simulated counts are zero, four fifths of them structural.
+All 72 fits converge, none has a positive Laplace log-likelihood, and the largest gradient component at the optimum is below 0.1.
+
+\begin{table}[htbp]
+\centering
+\caption{General ZISAR estimated by Laplace approximation on simulated lattices: mean (standard deviation) over 24 replications.}\label{tab:general_mc}
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & True & $n = 900$ & $n = 3600$ & $n = 10{,}000$ \\
+\midrule
+$\beta_1$   & $0.5$  & $0.508$ (0.040) & $0.496$ (0.017) & $0.498$ (0.014) \\
+$\beta_2$   & $-0.3$ & $-0.289$ (0.043) & $-0.288$ (0.021) & $-0.304$ (0.012) \\
+$\rho$      & $0.4$  & $0.406$ (0.094) & $0.428$ (0.064) & $0.416$ (0.035) \\
+$\sigma$    & $0.5$  & $0.443$ (0.111) & $0.441$ (0.041) & $0.444$ (0.027) \\
+$\gamma_0$  & $-1$   & $-0.853$ (0.121) & $-0.853$ (0.082) & $-0.867$ (0.038) \\
+$\gamma_1$  & $0.8$  & $0.669$ (0.091) & $0.693$ (0.060) & $0.693$ (0.030) \\
+$\rho_0$    & $0.6$  & $0.748$ (0.377) & $0.853$ (0.056) & $0.870$ (0.030) \\
+$\sigma_0$  & $1$    & $0.344$ (0.089) & $0.295$ (0.065) & $0.288$ (0.040) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:general_mc} shows that the count process is recovered as well as under the restricted model: $\bbeta$ and $\rho$ are close to their true values, and $\sigma$ is slightly underestimated, the trade-off with $\kappa$ noted in Section~\ref{sec:montecarlo}.
+The inflation process is not.
+At every sample size $\sigma_0$ is estimated at about 0.3 instead of 1 and $\rho_0$ at 0.75--0.87 instead of 0.6, and the inflation coefficients are attenuated by 13--17\%.
+The bias does not shrink with $n$, because the number of random effects grows with the data and each $g_i$ is informed by a single observation that is zero or not, the setting in which the Laplace approximation of binary-response random effects is known to be most biased \citep{joe2008}.
+The approximation replaces a rough field with a smoother one of much smaller variance.
+With this estimator $\sigma_0$, $\rho_0$ and, to a lesser extent, $\bgamma$ should not be read at face value, and at the national scale the failure is worse, as the next check shows; the reduced-rank field of Section~\ref{sec:model_spec} is the alternative adopted in the paper.
+
+\paragraph{Reduced-rank field at the national scale.}
+The second check uses a design at the scale of the application, built on an outcome with many structural zeros: shoplifting, which cannot be recorded where there are no shops.
+The units and the weights matrix are the 32{,}322 units of Section~\ref{sec:solar_data}.
+The count process has six covariates---retail and non-retail employment at the workplace (Business Register and Employment Survey 2018, log of one plus), residents (log), population density (log), the income-deprivation rate and the social-rented share---and the inflation process three: an indicator of no recorded retail employment, retail employment and density.
+The parameters are the restricted ZISAR estimates for the shoplifting offences recorded by the police in each unit between July 2016 and June 2019 (\texttt{data.police.uk}; 33.9\% of the units record none), which give $\hat\rho = 0$ and attribute 45\% of the zeros to the structural regime.
+From these four datasets are simulated with different fields in the inflation predictor: no field; a field of the reduced-rank form \eqref{eq:rr_g} on knots 10~km apart, with $\rho_0 = 0.9$ and $\sigma_0 = 0.5$; a field constant within the areas of the 38 police forces, drawn from $N(0, 0.7^2)$ for each force, the step field that differences of recording between forces would produce; and the unit-level SAR field of the general model, with $\rho_0 = 0.9$ and $\sigma_0 = 0.5$.
+Each dataset receives a restricted fit and then the reduced-rank field on the lattice of knots 10~km apart ($K = 1{,}499$ knots, bisquare radius 15~km, about seven knots per unit), by the profile procedure of Appendix~\ref{app:tmb} (\texttt{crime\_application.r}); Table~\ref{tab:general_sim} reports the results.
+
+\begin{table}[htbp]
+\centering
+\caption{Reduced-rank inflation field (10~km knots) on data simulated at the national scale: likelihood-ratio statistic against the restricted fit, field estimates and correlation between the predicted and the true field. The last row fits the unit-level field of the general model to the data without a field. Bounds of the optimisation box: $\rho_0 \ge 0$ for the reduced-rank field, $\sigma_0 \ge 0.001$.}\label{tab:general_sim}
+\footnotesize
+\begin{tabular}{lrrrrrrr}
+\toprule
+Field in the data & Zeros & Structural & SD of field & LR & $\hat\rho_0$ & $\hat\sigma_0$ & Corr. \\
+\midrule
+None                               & 10{,}962 & 4{,}900 & 0    & 0.0   & 0     & 0.001 & -- \\
+Reduced-rank, $(0.9,\,0.5)$        & 10{,}944 & 4{,}827 & 0.85 & 465.7 & 0.82  & 0.76  & 0.88 \\
+Constant within forces, SD 0.7     & 10{,}946 & 4{,}920 & 0.61 & 285.9 & 0.90  & 0.40  & 0.81 \\
+Unit-level SAR, $(0.9,\,0.5)$      & 11{,}657 & 5{,}834 & 0.99 & 60.9  & 0     & 1.07  & 0.26 \\
+\midrule
+None, unit-level field fitted      & 10{,}962 & 4{,}900 & 0    & 2{,}089 & $-0.08$ & 2.47 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Without a field the profile of the reduced-rank likelihood is below zero at every grid point and the fit returns $\sigma_0$ at its lower bound: the procedure does not invent a field.
+With a field it can represent it recovers it: a likelihood ratio of 466, estimates of $(0.82, 0.76)$ for $(0.9, 0.5)$---the field at the units has a standard deviation of 0.85 once the autoregression is applied---and a correlation of 0.88 between the predicted and the true field; the step field of the forces is recovered as well (0.81), by a smooth field that follows the boundaries.
+The unit-level field is detected (likelihood ratio 61) but reconstructed poorly (0.26): most of its variance lies below the knot spacing, where the basis cannot follow it.
+The last row shows what the unit-level field of the general model does on the data without a field: the profile of its Laplace likelihood rises by 85 points at $\sigma_0 = 1$ before collapsing, and the optimiser runs to $\sigma_0 = 2.5$ and stops with a false-convergence flag at a gradient of order $10^8$, 2{,}089 likelihood-ratio points above the restricted model, where the true statistic is zero.
+This is the failure described in Section~\ref{sec:est_laplace}, and it is why the general model is estimated with the reduced-rank field throughout.
 
 \section{TMB Implementation Details}\label{app:tmb}
 
@@ -151,3 +255,9 @@ The same mechanism is used by \texttt{TMB} for Gaussian Markov random fields wit
 The sparse matrix--vector product $(\mathbf{I}-\rho\bW)\boldsymbol{\eta}$ is computed via Eigen's sparse algebra, preserving the $O(\mathrm{nnz}(\bW))$ complexity.
 The reparametrisation $\rho = \tanh(\tilde{\rho})$ ensures $\rho \in (-1,1)$; for numerical stability the optimiser additionally bounds $\tilde\rho\in[-4,4]$, $\kappa\in[0.01,500]$ and $\sigma\in[0.001,10]$ (Section~\ref{sec:est_algorithm}).
 Standard errors on the original scale are obtained by the delta method through \texttt{TMB}'s \texttt{ADREPORT} mechanism.
+
+For the general ZISAR (\texttt{zero\_spatial = "field"} in \texttt{zisar\_fit}) the template declares a second random vector $\mathbf{g}$ with the SAR prior above, $\rho_0$ and $\sigma_0$ in place of $\rho$ and $\sigma$ and no mean term, and adds $\mathbf{g}$ to the inflation predictor; $\rho_0 = \tanh(\tilde\rho_0)$ and $\sigma_0$ have the same bounds as $\rho$ and $\sigma$.
+For the reduced-rank field \eqref{eq:rr_g} (\texttt{zero\_spatial = "reduced"}) the template receives the basis $\mathbf{B}$, the knot weights $\bW_K$ and their eigenvalues as data, declares the $K$ knot values $\boldsymbol\alpha$ as random effects with the SAR prior on $\bW_K$---its log-determinant from the eigenvalues, $K$ being small---and adds $\mathbf{B}\boldsymbol\alpha$ to the inflation predictor, with $\tilde\rho_0 \ge 0$.
+\texttt{zisar\_basis} builds $\mathbf{B}$ and $\bW_K$ from the unit coordinates, the knot spacing and the radius, and \texttt{zisar\_field\_profile} evaluates the Laplace likelihood of either field on a grid of $(\rho_0, \sigma_0)$ with the other parameters at the restricted estimates and then fits the field from the best grid point.
+For the SAR filter on the inflation predictor (\texttt{zero\_spatial = "sar"}) the template computes $\boldsymbol{\zeta} = (\mathbf{I}_n - \rho_0\bW)^{-1}\bZ\bgamma$ with \texttt{newton::Newton}, as the minimiser of $\tfrac12\|(\mathbf{I}_n - \rho_0\bW)\boldsymbol{\zeta} - \bZ\bgamma\|^2$: the solver factorises the sparse Hessian $(\mathbf{I}_n - \rho_0\bW)'(\mathbf{I}_n - \rho_0\bW)$ and supplies the derivatives of $\boldsymbol{\zeta}$ with respect to $\rho_0$ and $\bgamma$ by the implicit function theorem, so no random effects are added.
+In both specifications the mixture probabilities are computed on the log scale, $\log P(y_i = 0) = \log\{\exp(\log\pi_i) + \exp(\log(1-\pi_i) + \log h(0;\eta_i,\kappa))\}$ with $\log\pi_i = -\log(1 + e^{-\zeta_i})$ and $\zeta_i$ the inflation predictor, which avoids underflow when $\zeta_i$ is large in absolute value.

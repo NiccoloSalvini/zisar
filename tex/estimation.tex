@@ -22,11 +22,24 @@ where $\hat{\boldsymbol{\eta}}(\btheta) = \arg\min_{\boldsymbol{\eta}} f(\boldsy
 The inner optimisation (finding $\hat{\boldsymbol{\eta}}$) is a weighted least-squares problem in the latent field and is solved by Newton--Raphson iteration.
 The outer optimisation (maximising $\ell_{\mathrm{LA}}$ over $\btheta$) is carried out by a box-constrained quasi-Newton method (\texttt{nlminb}), with gradients computed by automatic differentiation (AD) through both the inner and outer problems.
 
-\paragraph{Exploiting sparsity.}
 The Hessian $\mathbf{H}$ inherits the sparsity pattern of $\bW$: the SAR prior contributes $\sigma^{-2}(\mathbf{I}_n - \rho\bW)'(\mathbf{I}_n - \rho\bW)$, which is sparse, and the observation model contributes a diagonal term $\diag(d_1,\ldots,d_n)$ (since the data are conditionally independent given $\boldsymbol{\eta}$).
 Hence $\mathbf{H}$ is sparse and its Cholesky factorisation can be computed in $O(n)$ operations for banded or nested-dissection orderings.
 The log-determinant in \eqref{eq:laplace} is obtained as twice the sum of the log-diagonal of the Cholesky factor, avoiding any dense matrix inversion.
 This makes the estimator scalable to $n = O(10^4)$ or beyond.
+
+\paragraph{General model.}
+In the general ZISAR the random effects are $(\boldsymbol{\eta}, \mathbf{g}) \in \mathbb{R}^{2n}$: the joint density \eqref{eq:neg_joint} gains the SAR prior of $\mathbf{g}$, with log-determinant $\log|\det(\mathbf{I}_n - \rho_0\bW)|$, and the Laplace approximation integrates the two fields jointly.
+The Hessian stays sparse, since the two priors contribute $\sigma^{-2}(\mathbf{I}_n - \rho\bW)'(\mathbf{I}_n - \rho\bW)$ and $\sigma_0^{-2}(\mathbf{I}_n - \rho_0\bW)'(\mathbf{I}_n - \rho_0\bW)$ and the observation model couples $\eta_i$ and $g_i$ only within unit $i$.
+The approximation, however, is not adequate for $\mathbf{g}$.
+Each $g_i$ is informed by a single outcome that is zero or not, the setting in which the Laplace approximation of binary-response random effects is known to be most biased \citep{joe2008}, and the error does not average out: it is of the same order in every unit, so it accumulates over the $n$ elements of the field instead of vanishing as $n$ grows.
+Appendix~\ref{app:general} documents the consequence.
+On simulated lattices the variance of the field is underestimated by two thirds; on data generated without a field at the national scale, with $n = 32{,}322$, the approximate likelihood keeps rising as $\sigma_0$ grows, the optimiser stops at a large $\sigma_0$ with a gradient of order $10^8$, and the likelihood-ratio statistic against the restricted model exceeds two thousand where its true value is zero.
+A zero count can moreover be explained either by a low intensity or by a high inflation probability, so for strongly autocorrelated fields the conditional distribution of $(\eta_i, g_i)$ can be nearly degenerate along that trade-off; the Hessian $\mathbf{H}$ then approaches singularity, which is where the spurious optima documented in Appendix~\ref{app:general} arise.
+
+The reduced-rank field \eqref{eq:rr_g} removes the problem.
+Each of the $K$ knot values is informed by all the units within reach of the knot, so the integrand is close to Gaussian in $\boldsymbol{\alpha}$: on the same no-field data the gain over the restricted model is zero, and the field is recovered when it is present (Appendix~\ref{app:general}).
+The random effects are then $(\boldsymbol{\eta}, \boldsymbol{\alpha}) \in \mathbb{R}^{n+K}$; the prior of $\boldsymbol{\alpha}$ contributes the $K\times K$ precision $\sigma_0^{-2}(\mathbf{I}_K - \rho_0\bW_K)'(\mathbf{I}_K - \rho_0\bW_K)$, whose log-determinant follows from the eigenvalues of $\bW_K$, and $\mathbf{B}$ couples each $\alpha_k$ to the units within $r$ of knot $k$, so the Hessian remains sparse.
+This is the specification we recommend for the general model.
 
 \paragraph{Log-determinant of the SAR filter.}
 The prior density \eqref{eq:sar_prior} involves $|\det(\mathbf{I}_n - \rho\bW)|$.
@@ -42,7 +55,7 @@ When $n$ is large the dense eigendecomposition becomes the bottleneck (it requir
 \end{equation}
 whose argument, $(\mathbf{I}_n-\rho\bW)'(\mathbf{I}_n-\rho\bW)$, is sparse, symmetric and positive definite whenever $\mathbf{I}_n-\rho\bW$ is non-singular.
 Its log-determinant is obtained from a sparse Cholesky factorisation at each evaluation of the objective and differentiated with respect to $\rho$ by \texttt{TMB}'s atomic sparse log-determinant, so that no $n\times n$ dense matrix is ever formed.
-The two routes give identical estimates and standard errors; the sparse one is used in the application of Section~\ref{sec:application}, where $n = 32{,}844$.
+The two routes give identical estimates and standard errors; the sparse one is used in the application of Section~\ref{sec:solar} and in the simulations of Appendix~\ref{app:general}, where $n = 32{,}322$.
 
 % ---------------------------------------------------------------------------
 \subsection{Estimation algorithm}\label{sec:est_algorithm}
@@ -68,9 +81,17 @@ Algorithm~\ref{alg:zisar} summarises the full procedure, implemented in \texttt{
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Practical details.}
 The reparametrisation $\rho = \tanh(\tilde{\rho})$, $\kappa = \exp(\tilde{\kappa})$, and $\sigma = \exp(\tilde{\sigma})$ maps the constrained parameter space to $\mathbb{R}^{\dim(\btheta)}$. For numerical stability the optimiser nonetheless works within wide box constraints, $\tilde\rho\in[-4,4]$ ($|\rho|\le0.9993$), $\kappa\in[0.01,500]$ and $\sigma\in[0.001,10]$, and is restarted from up to three perturbed starting points if it fails to converge; fits ending at the upper bound for $\kappa$ are flagged (Section~\ref{sec:montecarlo}).
 Standard errors on the original scale are obtained via the delta method (handled automatically by \texttt{TMB}'s \texttt{sdreport()}).
+
+\paragraph{Computational cost.}
+The estimator is fast because no step forms a dense $n\times n$ matrix and no step relies on simulation.
+The Hessian of $f$ with respect to $\boldsymbol{\eta}$ has the sparsity pattern of $(\mathbf{I}_n-\rho\bW)'(\mathbf{I}_n-\rho\bW)$, that is of first- and second-order neighbours, so that each inner Newton step costs one sparse Cholesky factorisation, whose cost grows with the fill-in of the factor rather than with $n^3$.
+The log-determinant in the Laplace term comes from the same factor at no extra cost, and automatic differentiation delivers the exact gradient of $\ell_{\mathrm{LA}}$ for a small multiple of the cost of one evaluation, so that the outer quasi-Newton iterations need no numerical derivatives.
+The only step that does not scale is the eigendecomposition of $\bW$ in \eqref{eq:logdet}, which the sparse route \eqref{eq:logdet_sparse} removes.
+In the Monte Carlo study of Section~\ref{sec:montecarlo} a fit, standard errors included, takes on average 0.1\,s with $n=100$ and 0.55\,s with $n=400$ on a single core.
+In the application of Section~\ref{sec:solar}, with $n = 32{,}322$, a fit takes five to six minutes on a laptop and the effects decomposition under a minute, whereas the dense route would need more than 8\,GB of memory only to hold $\bW$.
+A Markov chain Monte Carlo fit of the same latent model, by contrast, needs thousands of evaluations of the joint density and of its gradient.
 
 % ---------------------------------------------------------------------------
 \subsection{Asymptotic properties}\label{sec:est_asymptotics}
@@ -111,8 +132,7 @@ At the estimated mode $\hat{\boldsymbol{\eta}}$, the fitted count mean and infla
 \end{equation}
 and the marginal expectation is $\E[y_i] \approx (1 - \hat{\pi}_i)\hat{\mu}_i$.
 
-\paragraph{Effects through the count process.}
-Consider the $r$-th column of $\bX$.
+Consider first the count process and the $r$-th column of $\bX$.
 A change in $x_{jr}$ (unit $j$, covariate $r$) propagates to $\eta_i$ for all $i$ through the spatial multiplier:
 \begin{equation}\label{eq:deta_dx}
   \frac{\partial\boldsymbol{\eta}}{\partial x_{\cdot r}} = \mathbf{S}(\rho)\,\beta_r.
@@ -123,7 +143,6 @@ The resulting effect on $\E[\by]$ is, stacking all $(i,j)$ pairs into an $n \tim
 \end{equation}
 where $\odot$ denotes element-wise multiplication.
 
-\paragraph{Effects through the inflation process.}
 If the $r$-th covariate also enters $\bZ$, the inflation probability responds:
 \begin{equation}\label{eq:effects_zero}
   \frac{\partial\pi_i}{\partial z_{ir}} = \pi_i(1-\pi_i)\,\gamma_r,
@@ -132,25 +151,19 @@ contributing an additional channel
 \begin{equation}\label{eq:effects_zero_channel}
   \mathbf{M}_r^{(\pi)} = -\diag(\hat{\bmu})\;\diag\!\bigl(\hat{\bpi}\odot(\mathbf{1}-\hat{\bpi})\bigr)\;\gamma_r\;\mathbf{I}_n.
 \end{equation}
-Under the restricted ZISAR, $\mathbf{g} = \mathbf{0}$ implies no spatial feedback in the inflation process, so $\mathbf{M}_r^{(\pi)}$ is diagonal---the zero-inflation channel produces only direct effects.
+The covariates enter the inflation predictor without a spatial multiplier---the field $\mathbf{g}$ of the general ZISAR is additive and vanishes in the restricted one---so $\mathbf{M}_r^{(\pi)}$ is diagonal and the zero-inflation channel produces only direct effects; in the general model $\hat{\bpi}$ is evaluated at the predicted field $\hat{\mathbf{g}}$.
 
-\paragraph{Summary measures.}
 The average direct, indirect, and total effects are defined as:
 \begin{align}
   \overline{M}_r^{\,\mathrm{direct}} &= n^{-1}\,\tr\!\bigl(\mathbf{M}_r + \mathbf{M}_r^{(\pi)}\bigr), \label{eq:avg_direct} \\
   \overline{M}_r^{\,\mathrm{total}}  &= n^{-1}\,\mathbf{1}_n'\,\bigl(\mathbf{M}_r + \mathbf{M}_r^{(\pi)}\bigr)\,\mathbf{1}_n, \label{eq:avg_total} \\
   \overline{M}_r^{\,\mathrm{indirect}} &= \overline{M}_r^{\,\mathrm{total}} - \overline{M}_r^{\,\mathrm{direct}}. \label{eq:avg_indirect}
 \end{align}
-The indirect effects arise entirely through the count-process channel (the spatial multiplier $\mathbf{S}(\rho)$), since the inflation channel is diagonal under the restricted specification.
+The indirect effects arise entirely through the count-process channel (the spatial multiplier $\mathbf{S}(\rho)$), since the inflation channel is diagonal.
 
 \begin{proposition}[Effects decomposition]\label{prop:effects}
 Under the restricted ZISAR ($\mathbf{g}=\mathbf{0}$), the $n \times n$ matrix of effects of the $r$-th count covariate on $\E[\by]$ is given by \eqref{eq:effects_count}.
-These effects are:
-\begin{enumerate}
-\item[(i)] strictly positive (negative) if $\beta_r > 0$ ($\beta_r < 0$) and $\rho \in [0,1)$;
-\item[(ii)] the indirect effect vanishes if and only if $\rho = 0$;
-\item[(iii)] monotonically increasing in $|\rho|$ for fixed $\bbeta$.
-\end{enumerate}
+These effects are (i) strictly positive (negative) if $\beta_r > 0$ ($\beta_r < 0$) and $\rho \in [0,1)$, (ii) such that the indirect effect vanishes if and only if $\rho = 0$, and (iii) monotonically increasing in $|\rho|$ for fixed $\bbeta$.
 \end{proposition}
 
 \begin{proof}

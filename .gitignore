@@ -23,4 +23,13 @@ data/*.rds
 # Solar PV application: downloaded sources (re-created by notebooks/solar_data.r)
 data/solar/raw/
 data/solar/*.rds
+data/solar/solar_boom_reps/
 notebooks/solar_results.rds
+
+# Shoplifting application: downloaded sources (re-created by notebooks/crime_data.r)
+data/crime/raw/
+data/crime/*.rds
+notebooks/crime_results.rds
+notebooks/crime_fits.rds
+notebooks/crime_application*.log
+data/*/*.log

@@ -7,17 +7,27 @@
 #            LSOAs: the units are the connected components of the ONS
 #            2001-2011 lookup (1:1 for 97% of LSOAs; split and merged LSOAs
 #            are re-aggregated to the coarser of the two geographies)
-#  Outcome:  number of domestic PV installations accredited under the
-#            Feed-in Tariff (FiT) scheme, April 2010 - March 2019
-#            (Ofgem Central FiT Register, installation report 30 June 2026)
+#  Outcome:  number of domestic PV installations of up to 10 kW accredited
+#            under the Feed-in Tariff (FiT) scheme, April 2010 - March 2019
+#            (Ofgem Central FiT Register, installation report 30 June 2026).
+#            Larger "domestic" installations (10-50 kW, 2.8% of those after
+#            the 2016 reform) are landlord systems on blocks of flats, not
+#            household adoptions; counts of all capacities and of up to 4 kW
+#            are kept for the robustness checks
 #  Covariates: 2011 Census (baseline, pre-scheme), English Indices of
 #            Deprivation 2019, VOA Council Tax stock of properties 2015
-#            (band and build period) and DESNZ domestic electricity
-#            consumption 2010 (before the scheme)
+#            (band and build period), DESNZ domestic electricity
+#            consumption 2010 (before the scheme), roof form and floor area
+#            from Energy Performance Certificates lodged before the reform,
+#            conservation areas and listed buildings in force at the reform
+#            (planning.data.gov.uk) and the leasehold share of houses sold
+#            in 2008-2015 (HM Land Registry Price Paid)
 #  Weights:  queen contiguity of the generalised (20 m) LSOA boundaries
 #
 #  Requires the duckdb command-line client to read the Ofgem workbooks
-#  (1M rows; readxl takes several minutes on them).
+#  (1M rows; readxl takes several minutes on them) and the EPC and Land
+#  Registry files, and an EPC API token (environment variable EPC_TOKEN or
+#  the file ~/.epc_token) for the bulk EPC download (about 8 GB).
 #  Writes data/solar/solar_lsoa.rds, W_lsoa.rds and lsoa_map.rds
 # =============================================================================
 
@@ -48,40 +58,52 @@ fit_xlsx <- file.path(raw_dir, paste0("fit_", names(fit_parts), ".xlsx"))
 for (k in seq_along(fit_parts))
   download_once(paste0(ofgem, fit_parts[k], ".xlsx"), fit_xlsx[k])
 
-fit_lsoa_csv <- file.path(raw_dir, "fit_pv_lsoa01.csv")
+fit_lsoa_csv <- file.path(raw_dir, "fit_pv_lsoa01_kw.csv")
+fit_cov_csv  <- file.path(raw_dir, "fit_pv_coverage_kw.csv")
 if (!file.exists(fit_lsoa_csv)) {
   # The header is on row 5 of each workbook; one row per accredited installation.
+  # pv_dom and pv_dom_late count installations of up to 10 kW (the FiT band
+  # boundary): the 10-50 kW "domestic" installations are mostly landlord
+  # systems on blocks of flats, commissioned in batches
   sql <- sprintf("
     LOAD excel;
     CREATE TABLE fit AS
       SELECT * FROM read_xlsx('%s', header=true, range='A5:Z2000000', all_varchar=true)
       UNION ALL BY NAME SELECT * FROM read_xlsx('%s', header=true, range='A5:Z2000000', all_varchar=true)
       UNION ALL BY NAME SELECT * FROM read_xlsx('%s', header=true, range='A5:Z2000000', all_varchar=true);
+    CREATE TABLE pv AS
+      SELECT *, \"Installation Type\" = 'Domestic' AS dom,
+             try_cast(\"Installed capacity\" AS DOUBLE) AS kw,
+             try_strptime(\"Commissioning date\", '%%d/%%m/%%Y') >= DATE '2016-02-08' AS late
+      FROM fit WHERE Technology = 'Photovoltaic' AND \"Extension (Y/N)\" = 'N';
     COPY (
       SELECT \"LLSOA Code\" AS lsoa01,
-             count(*) FILTER (WHERE \"Installation Type\" = 'Domestic') AS pv_dom,
-             sum(try_cast(\"Installed capacity\" AS DOUBLE))
-               FILTER (WHERE \"Installation Type\" = 'Domestic') AS pv_dom_kw,
-             count(*) FILTER (WHERE \"Installation Type\" = 'Domestic' AND
-               try_strptime(\"Commissioning date\", '%%d/%%m/%%Y') >= DATE '2016-02-08') AS pv_dom_late,
-             count(*) FILTER (WHERE \"Installation Type\" <> 'Domestic') AS pv_nondom
-      FROM fit
-      WHERE Technology = 'Photovoltaic' AND \"Extension (Y/N)\" = 'N'
-        AND \"LLSOA Code\" LIKE 'E01%%'
+             count(*) FILTER (WHERE dom AND kw <= 10) AS pv_dom,
+             sum(kw) FILTER (WHERE dom AND kw <= 10) AS pv_dom_kw,
+             count(*) FILTER (WHERE dom AND kw <= 10 AND late) AS pv_dom_late,
+             count(*) FILTER (WHERE dom) AS pv_dom_all,
+             count(*) FILTER (WHERE dom AND late) AS pv_dom_late_all,
+             count(*) FILTER (WHERE dom AND kw <= 4 AND late) AS pv_dom_late_4,
+             count(*) FILTER (WHERE NOT dom) AS pv_nondom
+      FROM pv WHERE \"LLSOA Code\" LIKE 'E01%%'
       GROUP BY 1
     ) TO '%s' (HEADER);
     COPY (
       SELECT count(*) AS n_dom_england,
-             count(\"LLSOA Code\") AS n_dom_with_lsoa
-      FROM fit
-      WHERE Technology = 'Photovoltaic' AND \"Extension (Y/N)\" = 'N'
-        AND \"Installation Type\" = 'Domestic' AND \"Installation Country\" = 'England'
+             count(\"LLSOA Code\") AS n_dom_with_lsoa,
+             count(*) FILTER (WHERE late) AS n_late_england,
+             count(\"LLSOA Code\") FILTER (WHERE late) AS n_late_with_lsoa,
+             count(*) FILTER (WHERE kw > 10) AS n_dom_gt10,
+             count(\"LLSOA Code\") FILTER (WHERE late AND kw > 10) AS n_late_gt10_with_lsoa,
+             count(*) FILTER (WHERE kw IS NULL) AS n_dom_no_kw
+      FROM pv WHERE dom AND \"Installation Country\" = 'England'
     ) TO '%s' (HEADER);",
-    fit_xlsx[1], fit_xlsx[2], fit_xlsx[3], fit_lsoa_csv,
-    file.path(raw_dir, "fit_pv_coverage.csv"))
+    fit_xlsx[1], fit_xlsx[2], fit_xlsx[3], fit_lsoa_csv, fit_cov_csv)
   stopifnot(system2("duckdb", c("-c", shQuote(sql))) == 0)
 }
 fit <- read_csv(fit_lsoa_csv, show_col_types = FALSE)
+fit_vars <- c("pv_dom", "pv_dom_kw", "pv_dom_late", "pv_dom_all", "pv_dom_late_all",
+              "pv_dom_late_4", "pv_nondom")
 
 # -----------------------------------------------------------------------------
 # 2. 2011 Census tables (Nomis API), all 2011 LSOAs (TYPE298), Total rows only
@@ -278,6 +300,125 @@ if (length(miss)) {
 }
 
 # -----------------------------------------------------------------------------
+# 4b. Barriers to installation measured before the reform (8 Feb 2016), on
+#     2011 LSOAs through the 2011-based National Statistics Postcode Lookup:
+#     roof form and floor area from Energy Performance Certificates (latest
+#     certificate per dwelling lodged before the reform), conservation areas
+#     and listed buildings in force at the reform, and the leasehold share of
+#     houses (latest sale per property in Price Paid, 2008-2015)
+# -----------------------------------------------------------------------------
+cut_date <- as.Date("2016-02-08")
+duck <- function(sql) stopifnot(system2("duckdb", c("-c", shQuote(sql))) == 0)
+nspl_csv <- file.path(raw_dir, "geo", "nspl11", "Data", "NSPL_AUG_2024_UK.csv")
+if (!file.exists(nspl_csv)) {
+  dir.create(dirname(dirname(nspl_csv)), showWarnings = FALSE)
+  zip <- download_once("https://www.arcgis.com/sharing/rest/content/items/c5afedb9204a47e99559a4880feddcb1/data",
+                       file.path(dirname(dirname(nspl_csv)), "nspl11_aug2024.zip"))
+  stopifnot(system2("unzip", c("-q", "-o", shQuote(zip), "Data/NSPL_AUG_2024_UK.csv",
+                               "-d", shQuote(dirname(dirname(nspl_csv))))) == 0)
+}
+nspl_sql <- sprintf("CREATE TABLE nspl AS SELECT upper(replace(pcds, ' ', '')) AS pc, lsoa11
+  FROM read_csv('%s', all_varchar = true) WHERE lsoa11 LIKE 'E01%%';", nspl_csv)
+
+# EPC: the bulk domestic file needs an API token of the EPC data service
+epc_dir <- file.path(raw_dir, "epc"); dir.create(epc_dir, showWarnings = FALSE)
+epc_zip <- file.path(epc_dir, "domestic-csv.zip")
+if (!file.exists(epc_zip)) {
+  tok <- Sys.getenv("EPC_TOKEN")
+  if (!nzchar(tok) && file.exists("~/.epc_token"))
+    tok <- gsub("[[:space:]]", "", readLines("~/.epc_token", warn = FALSE)[1])
+  if (!nzchar(tok)) stop("the EPC bulk download needs an API token in EPC_TOKEN or ~/.epc_token")
+  op <- options(timeout = 36000)
+  download.file("https://api.get-energy-performance-data.communities.gov.uk/api/files/domestic/csv",
+                epc_zip, mode = "wb", quiet = TRUE, headers = c(Authorization = paste("Bearer", tok)))
+  options(op); rm(tok)
+}
+epc_files <- file.path(epc_dir, sprintf("certificates-%d.csv", 2008:2016))
+for (f in epc_files[!file.exists(epc_files)])
+  stopifnot(system2("unzip", c("-q", "-n", shQuote(epc_zip), basename(f), "-d", shQuote(epc_dir))) == 0)
+epc_csv <- file.path(epc_dir, "epc_lsoa11_pre2016.csv")
+epc_pc_csv <- file.path(epc_dir, "epc_postcode_dwellings_pre2016.csv")
+if (!file.exists(epc_csv) || !file.exists(epc_pc_csv)) duck(sprintf("
+  SET memory_limit = '16GB';
+  CREATE TABLE epc AS
+  SELECT uprn, upper(replace(postcode, ' ', '')) AS pc, lower(address) AS addr, lodgement_date,
+         roof_description AS rd, try_cast(total_floor_area AS DOUBLE) AS tfa
+  FROM read_csv([%s], all_varchar = true, union_by_name = true)
+  WHERE country = 'England' AND lodgement_date < '%s';
+  CREATE TABLE last AS SELECT * EXCLUDE (rn) FROM (
+    SELECT *, row_number() OVER (PARTITION BY coalesce(uprn, pc || '|' || addr)
+                                 ORDER BY lodgement_date DESC) AS rn FROM epc) WHERE rn = 1;
+  %s
+  COPY (
+    SELECT n.lsoa11, count(*) AS n_epc,
+      sum(CASE WHEN rd ILIKE '%%dwelling above%%' OR rd ILIKE '%%premises above%%' THEN 1 ELSE 0 END) AS no_roof,
+      sum(CASE WHEN rd ILIKE 'Flat%%' THEN 1 ELSE 0 END) AS flat_roof,
+      sum(CASE WHEN rd ILIKE 'Roof room%%' THEN 1 ELSE 0 END) AS roof_room,
+      sum(CASE WHEN tfa > 0 THEN tfa END) AS tfa_sum, sum(CASE WHEN tfa > 0 THEN 1 ELSE 0 END) AS tfa_n
+    FROM last l JOIN nspl n USING (pc) GROUP BY n.lsoa11
+  ) TO '%s' (HEADER);
+  COPY (SELECT pc, count(*) AS n_dwell FROM last GROUP BY pc) TO '%s' (HEADER);",
+  paste0("'", epc_files, "'", collapse = ", "), cut_date, nspl_sql, epc_csv, epc_pc_csv))
+epc11 <- read_csv(epc_csv, show_col_types = FALSE) |>
+  select(lsoa11, n_epc, no_roof, flat_roof, roof_room, tfa_sum, tfa_n)
+
+# Conservation areas designated before the reform and not ended by then: share
+# of the EPC dwellings, located at their postcode centroid, that lie inside one
+plan_dir <- file.path(raw_dir, "planning"); dir.create(plan_dir, showWarnings = FALSE)
+ca <- st_read(download_once("https://files.planning.data.gov.uk/dataset/conservation-area.geojson",
+                            file.path(plan_dir, "conservation-area.geojson")), quiet = TRUE)
+in_force <- function(start, end) {
+  start <- as.Date(ifelse(nzchar(start), start, NA)); end <- as.Date(ifelse(nzchar(end), end, NA))
+  (is.na(start) | start < cut_date) & (is.na(end) | end >= cut_date)
+}
+ca <- st_make_valid(st_transform(ca[in_force(ca$designation.date, ca$end.date), ], 27700))
+nspl_xy <- read_csv(nspl_csv, col_select = c(pcds, oseast1m, osnrth1m, lsoa11), show_col_types = FALSE) |>
+  filter(startsWith(lsoa11, "E01"), !is.na(oseast1m)) |>
+  transmute(pc = toupper(gsub(" ", "", pcds)), oseast1m, osnrth1m, lsoa11)
+pts <- read_csv(epc_pc_csv, show_col_types = FALSE) |> inner_join(nspl_xy, by = "pc")
+pts$in_ca <- lengths(st_intersects(st_as_sf(pts, coords = c("oseast1m", "osnrth1m"), crs = 27700), ca)) > 0
+ca11 <- pts |> group_by(lsoa11) |> summarise(dw = sum(n_dwell), dw_ca = sum(n_dwell * in_ca), .groups = "drop")
+
+# Listed buildings listed before the reform and not removed by then
+lb <- read_csv(download_once("https://files.planning.data.gov.uk/dataset/listed-building.csv",
+                             file.path(plan_dir, "listed-building.csv")),
+               col_select = c(point, `start-date`, `end-date`), col_types = cols(.default = "c")) |>
+  filter(!is.na(point), nzchar(point), in_force(coalesce(`start-date`, ""), coalesce(`end-date`, "")))
+hit <- st_intersects(st_transform(st_as_sf(lb, wkt = "point", crs = 4326), 27700), bgc)
+lb11 <- tibble(lsoa11 = bgc$LSOA11CD[unlist(hit[lengths(hit) == 1])]) |> count(lsoa11, name = "listed")
+
+# Leasehold: latest standard (category A) sale of each property before the
+# reform, 2008-2015; share of houses (detached, semi-detached, terraced) held
+# on a lease
+lr_dir <- file.path(raw_dir, "landreg"); dir.create(lr_dir, showWarnings = FALSE)
+for (yr in 2008:2015)
+  download_once(sprintf("https://price-paid-data.publicdata.landregistry.gov.uk/pp-%d.csv", yr),
+                file.path(lr_dir, sprintf("pp-%d.csv", yr)))
+lease_csv <- file.path(lr_dir, "lease_lsoa11_pre2016.csv")
+if (!file.exists(lease_csv)) duck(sprintf("
+  CREATE TABLE pp AS SELECT * FROM read_csv('%s/pp-20*.csv', header = false, all_varchar = true,
+    names = ['tid','price','date','postcode','ptype','new','duration','paon','saon','street','locality','town','district','county','cat','status']);
+  CREATE TABLE prop AS SELECT * EXCLUDE (rn) FROM (
+    SELECT upper(replace(postcode, ' ', '')) AS pc, ptype, duration,
+           row_number() OVER (PARTITION BY postcode, paon, saon, street ORDER BY date DESC) AS rn
+    FROM pp WHERE cat = 'A' AND postcode IS NOT NULL AND date < '%s') WHERE rn = 1;
+  %s
+  COPY (SELECT lsoa11, sum(CASE WHEN ptype IN ('D','S','T') THEN 1 ELSE 0 END) AS pp_houses,
+               sum(CASE WHEN ptype IN ('D','S','T') AND duration = 'L' THEN 1 ELSE 0 END) AS pp_lease_houses
+        FROM prop JOIN nspl USING (pc) GROUP BY lsoa11) TO '%s' (HEADER);",
+  lr_dir, cut_date, nspl_sql, lease_csv))
+lease11 <- read_csv(lease_csv, show_col_types = FALSE)
+if (!"pp_houses" %in% names(lease11))      # file written by an earlier version
+  lease11 <- rename(lease11, pp_houses = houses, pp_lease_houses = lease_houses)
+lease11 <- select(lease11, lsoa11, pp_houses, pp_lease_houses)
+
+barriers11 <- iod |> select(lsoa11) |>
+  left_join(epc11, by = "lsoa11") |> left_join(ca11, by = "lsoa11") |>
+  left_join(lb11, by = "lsoa11") |> left_join(lease11, by = "lsoa11") |>
+  mutate(across(-lsoa11, ~ coalesce(.x, 0)))
+barrier_vars <- setdiff(names(barriers11), "lsoa11")
+
+# -----------------------------------------------------------------------------
 # 5. Harmonised units: connected components of the 2001-2011 lookup graph
 # -----------------------------------------------------------------------------
 nodes <- c(paste0("a", unique(lk$LSOA01CD)), paste0("b", unique(lk$LSOA11CD)))
@@ -311,7 +452,7 @@ fit_unmatched <- filter(fit, is.na(unit))
 fit_u <- fit |>
   filter(!is.na(unit)) |>
   group_by(unit) |>
-  summarise(across(c(pv_dom, pv_dom_kw, pv_dom_late, pv_nondom), sum), .groups = "drop")
+  summarise(across(all_of(fit_vars), sum), .groups = "drop")
 
 # -----------------------------------------------------------------------------
 # 6. Analysis dataset: Census counts summed over the 2011 LSOAs of each unit
@@ -330,6 +471,7 @@ l11 <- iod |>
   left_join(voa_age, by = "lsoa11") |>
   left_join(elec11, by = "lsoa11") |>
   left_join(pwc_df, by = "lsoa11") |>
+  left_join(barriers11, by = "lsoa11") |>
   left_join(unit_of11, by = c("lsoa11" = "LSOA11CD"))
 stopifnot(nrow(l11) == 32844, !anyNA(l11$unit), !anyNA(l11$households),
           !anyNA(select(l11, nssec12, hh_children, communal, band_eh, pre1919, elec_kwh)))
@@ -344,11 +486,12 @@ solar <- l11 |>
                      hh_tenure, owned, shared_own, social_rent, private_rent,
                      pop16, level4, pop, age65, hh_heat, gas_heat, area_ha,
                      empty_spaces, pop_nssec, nssec12, hh_comp, hh_children,
-                     communal, band_eh, voa_props, pre1919, voa_props_bp), sum),
+                     communal, band_eh, voa_props, pre1919, voa_props_bp,
+                     all_of(barrier_vars)), sum),
             .groups = "drop") |>
   left_join(select(units, unit, n01), by = "unit") |>
   left_join(fit_u, by = "unit") |>
-  mutate(across(c(pv_dom, pv_dom_kw, pv_dom_late, pv_nondom), ~ coalesce(.x, 0)),
+  mutate(across(all_of(fit_vars), ~ coalesce(.x, 0)),
          houses       = detached + semi + terraced,
          spaces       = houses + flat + caravan,   # household spaces, incl. vacant
          sh_owner     = (owned + shared_own) / hh_tenure,
@@ -366,6 +509,16 @@ solar <- l11 |>
          sh_empty     = empty_spaces / (households + empty_spaces),
          sh_band_eh   = band_eh / voa_props,
          sh_pre1919   = pre1919 / voa_props_bp,
+         # barriers before the reform; NA where a unit has no EPC dwelling or
+         # no house sale to measure them on
+         epc_noroof   = ifelse(n_epc > 0, no_roof / n_epc, NA),      # dwelling or premises above
+         epc_flatroof = ifelse(n_epc > 0, flat_roof / n_epc, NA),
+         epc_roofroom = ifelse(n_epc > 0, roof_room / n_epc, NA),
+         epc_floor    = ifelse(tfa_n > 0, log(tfa_sum / tfa_n), NA), # log mean floor area (m^2)
+         epc_cover    = ifelse(n_epc > 0, n_epc / households, NA),   # EPC dwellings per household
+         ca_share     = ifelse(dw > 0, dw_ca / dw, NA),              # EPC dwellings in a conservation area
+         listed_rate  = 1000 * listed / households,                  # listed buildings per 1,000 households
+         lease_house  = ifelse(pp_houses > 0, pp_lease_houses / pp_houses, NA),
          pv_rate      = 100 * pv_dom / households) |>
   arrange(unit)
 
@@ -405,11 +558,20 @@ saveRDS(list(queen = W_queen, nb_queen = nb, k6 = W_knn$k6, k10 = W_knn$k10,
              islands = solar$unit[isl]),
         file.path(out_dir, "W_lsoa.rds"))
 saveRDS(st_simplify(geo, dTolerance = 50), file.path(out_dir, "lsoa_map.rds"))
+saveRDS(unit_of11, file.path(out_dir, "unit_lookup.rds"))   # 2011 LSOA -> unit, for crime_data.r
 
-cov <- read_csv(file.path(raw_dir, "fit_pv_coverage.csv"), show_col_types = FALSE)
+cov <- read_csv(fit_cov_csv, show_col_types = FALSE)
 cat("Domestic PV in England:", cov$n_dom_england, " with LSOA code:", cov$n_dom_with_lsoa,
-    " assigned to units:", sum(solar$pv_dom),
-    " unmatched codes:", nrow(fit_unmatched), "(", sum(fit_unmatched$pv_dom), "installations )\n")
+    " assigned to units:", sum(solar$pv_dom_all), "(", sum(solar$pv_dom), "up to 10 kW )",
+    " unmatched codes:", nrow(fit_unmatched), "(", sum(fit_unmatched$pv_dom_all), "installations )\n")
+cat("After the reform:", cov$n_late_england, " with LSOA code:", cov$n_late_with_lsoa,
+    sprintf("(%.1f%% without)", 100 * (1 - cov$n_late_with_lsoa / cov$n_late_england)),
+    " over 10 kW among them:", cov$n_late_gt10_with_lsoa,
+    " in units: all", sum(solar$pv_dom_late_all), " up to 10 kW", sum(solar$pv_dom_late),
+    " up to 4 kW", sum(solar$pv_dom_late_4), "\n")
+cat("Units without a pre-reform EPC:", sum(is.na(solar$epc_noroof)),
+    " without a house sale:", sum(is.na(solar$lease_house)),
+    " without a located EPC dwelling:", sum(is.na(solar$ca_share)), "\n")
 cat("Units:", nrow(solar), " (2011 LSOAs:", sum(solar$n_lsoa11),
     "; units of >1 2011 LSOA:", sum(solar$n_lsoa11 > 1),
     "; of >1 2001 LSOA:", sum(solar$n01 > 1), ")\n")

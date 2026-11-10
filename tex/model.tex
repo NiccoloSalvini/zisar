@@ -70,12 +70,25 @@ In the \emph{general ZISAR}, the spatial field $\mathbf{g} = (g_1,\ldots,g_n)'$ 
 yielding $\mathbf{g} = (\mathbf{I}_n - \rho_0\bW)^{-1}\boldsymbol{\varepsilon}_0$ with its own autoregressive parameter $\rho_0$.
 This allows spatial clustering of the zero-inflation regime---for instance, neighbouring municipalities may all lack demand for a specific health service, and this absence is itself spatially structured.
 
+\paragraph{Reduced-rank inflation field.}
+A field with one element per unit is the natural specification, but each $g_i$ is informed by a single outcome that is zero or not, and Section~\ref{sec:est_laplace} shows that the Laplace approximation to its likelihood fails.
+We therefore also consider a field of lower dimension,
+\begin{equation}\label{eq:rr_g}
+  \mathbf{g} = \mathbf{B}\boldsymbol{\alpha}, \qquad
+  \boldsymbol{\alpha} = \rho_0\,\bW_K\boldsymbol{\alpha} + \boldsymbol{\varepsilon}_0, \qquad
+  \boldsymbol{\varepsilon}_0 \sim N(\mathbf{0},\,\sigma_0^2\mathbf{I}_K),
+\end{equation}
+where $\boldsymbol{\alpha}$ holds $K \ll n$ values at the knots of a regular lattice laid over the study region, $\bW_K$ is the row-standardised contiguity matrix of the knots and $\mathbf{B}$ is an $n\times K$ matrix of local basis functions: entry $(i,k)$ is the bisquare function $(1 - d_{ik}^2/r^2)^2$ of the distance $d_{ik}$ between unit $i$ and knot $k$, zero beyond a radius $r$, and the rows are normalised to sum to one, so that $g_i$ is a weighted mean of the knot values around unit $i$ \citep{cressie_johannesson2008}.
+Each knot value is informed by all the units within $r$ of the knot---some 150 in the simulations of Appendix~\ref{app:general}, with knots 10~km apart and $r = 15$~km---and the field is smooth at scales below the knot spacing.
+The parameters are those of the general model, $\rho_0$ and $\sigma_0^2$, now describing the process at the knots, with $\rho_0 \ge 0$ imposed since a negatively autocorrelated zero regime has no interpretation.
+The specification is the fixed-rank representation of spatial statistics \citep{cressie_johannesson2008} applied to the inflation predictor; its purpose here is inferential rather than computational, since the sparse algebra of Section~\ref{sec:estimation} handles the unit-level field without difficulty.
+
 In the \emph{restricted ZISAR}, the inflation process has no spatial random effect:
 \begin{equation}\label{eq:zeroinfl_restricted}
   g_i \equiv 0 \quad \forall\,i, \qquad\text{so}\qquad \logit(\pi_i) = \mathbf{z}_i'\bgamma.
 \end{equation}
-The restricted model is simpler, avoids identification issues between $\rho$ and $\rho_0$, and is the specification on which we focus the estimation algorithm, Monte~Carlo study, and empirical application.
-The general model is presented for completeness and is considered in the sensitivity analysis.
+The restricted model is simpler, avoids identification issues between $\rho$ and $\rho_0$, and is the specification on which we focus the estimation algorithm, the Monte~Carlo study and the first empirical application (Section~\ref{sec:solar}).
+The general model is examined by simulation in Appendix~\ref{app:general}: with the unit-level field the Laplace approximation fails, as Section~\ref{sec:est_laplace} explains, whereas the reduced-rank field is recovered.
 
 % ---------------------------------------------------------------------------
 \subsection{Full parameter vector and special cases}\label{sec:model_cases}
@@ -84,18 +97,19 @@ The complete parameter vector of the general ZISAR is
 \begin{equation}\label{eq:theta}
   \btheta = (\bbeta', \rho, \bgamma', \rho_0, \kappa, \sigma^2, \sigma_0^2)'.
 \end{equation}
-For the restricted model, $\rho_0$ and $\sigma_0^2$ are dropped.
+For the restricted model, $\rho_0$ and $\sigma_0^2$ are dropped; with the reduced-rank field \eqref{eq:rr_g} they describe the knot process.
 Table~\ref{tab:special_cases} lists the special cases nested within the specification.
 
 \begin{table}[htbp]
 \centering
 \caption{Special cases nested within the ZISAR model.}\label{tab:special_cases}
-\small
-\begin{tabular}{lccl}
+\footnotesize
+\begin{tabular}{lcl}
 \toprule
 Special case & Restrictions & Reference \\
 \midrule
 Restricted ZISAR & $g_i = 0$ & this paper (focus) \\
+General ZISAR, reduced-rank field & $\mathbf{g} = \mathbf{B}\boldsymbol{\alpha}$, $K \ll n$ & this paper \\
 SAR-NB-RE & $\pi_i = 0\;\forall\,i$ & -- \\
 SAR-Poisson & $\pi_i = 0,\;\kappa\to\infty,\;\sigma^2 = 0$ & \citet{lambert2010} \\
 ZINB (aspatial) & $\rho = 0,\;\sigma^2 = 0$ & \citet{cameron_trivedi2013} \\

@@ -34,7 +34,7 @@ This estimation strategy shares the scalability concerns of \citet{arbia_nardell
 
 Third, we establish the consistency and asymptotic normality of the Laplace-approximate MLE under regularity conditions analogous to those in \citet{lee2004} and \citet{newey_mcfadden1994}, and derive closed-form expressions for direct, indirect, and total marginal effects that account for both the zero-inflation mixture and the spatial multiplier, adapting the \citet{lesage_pace2009} framework to the nonlinear ZINB setting.
 
-Fourth, we provide an open-source \texttt{TMB} template and \texttt{R} functions (\texttt{zisar\_fit}, \texttt{zisar\_effects}, \texttt{zisar\_predict}) and demonstrate the model on a Monte~Carlo study and on an application to the $32{,}322$ small areas of England, which the sparse log-determinant of Section~\ref{sec:est_laplace} makes feasible at full scale.
+Fourth, we release the estimator, the effects decomposition and prediction in the open-source \texttt{R} package \texttt{zisar} \citep{zisar_pkg}, and demonstrate the model on a Monte~Carlo study and on an application to the $32{,}322$ small areas of England, which the sparse log-determinant of Section~\ref{sec:est_laplace} makes feasible at full scale.
 In the adoption of domestic solar photovoltaic systems during the boom of the Feed-in Tariff both parts of the restricted model are needed---spatial dependence in the counts and structural zeros where the housing stock leaves no roofs to equip---and the effects decomposition attributes the larger part of every total effect to spillovers.
 
 The remainder of the paper is organised as follows.

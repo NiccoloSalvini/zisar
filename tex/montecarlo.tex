@@ -16,7 +16,7 @@ The true parameter values are
 \]
 and the spatial parameter takes the values $\rho \in \{0, 0.15, 0.3, 0.45, 0.6\}$.
 The data contain 43--52\% zeros, structural and sampling, fewer as $\rho$ grows, rates commonly observed in health-care utilisation data.
-Each of the $5 \times 3 = 15$ scenarios is replicated $R = 1{,}000$ times (\texttt{mc\_run\_1000.r}).
+Each of the $5 \times 3 = 15$ scenarios is replicated $R = 1{,}000$ times.
 
 In each replication we fit three specifications.
 The ZINB \citep{cameron_trivedi2013}, estimated by \texttt{pscl::zeroinfl()} \citep{pscl}, ignores spatial dependence.
@@ -69,7 +69,7 @@ A fit, standard errors included, takes on average 0.1\,s with $n=100$, 0.25\,s w
 
 In applied work, the presence of spatial dependence is often judged from Moran's $I$ \citep{moran1950,cliff_ord1973} computed on the residuals of an aspatial model.
 In zero-inflated counts this test may lack power, because the spatial signal is diluted by the structural zeros and by negative binomial noise.
-We compare it with the likelihood-based tests delivered by ZISAR in a second experiment (\texttt{power\_moran.r}).
+We compare it with the likelihood-based tests delivered by ZISAR in a second experiment.
 The $n\in\{300, 900\}$ units have centroids drawn uniformly over a $2.5\times2$ box and $\bW$ is the row-standardised 6-nearest-neighbour matrix; four independent standard normal covariates enter the count process and one of them, together with a further independent covariate, enters the inflation process, with
 $\bbeta = (1.2,\, 0.4,\, 0.3,\, 0.2,\, -0.15)'$, $\bgamma = (-1.5,\, 0.6,\, -0.4)'$, $\kappa = 2$ and $\sigma = 0.4$.
 The covariates are spatially independent, a deliberately unfavourable setting for spatial methods: all the spatial structure in the outcome comes from the latent field.

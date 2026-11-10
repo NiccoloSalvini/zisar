@@ -90,6 +90,17 @@ In the \emph{restricted ZISAR}, the inflation process has no spatial random effe
 The restricted model is simpler, avoids identification issues between $\rho$ and $\rho_0$, and is the specification on which we focus the estimation algorithm, the Monte~Carlo study and the first empirical application (Section~\ref{sec:solar}).
 The general model is examined by simulation in Appendix~\ref{app:general}: with the unit-level field the Laplace approximation fails, as Section~\ref{sec:est_laplace} explains, whereas the reduced-rank field is recovered.
 
+Figure~\ref{fig:components} illustrates the two components of the restricted model on a synthetic region of 300 units, with $\rho = 0.5$ and a remoteness covariate that raises the probability of a structural zero and lowers the intensity of the count process.
+Of the 99 zeros, 67 are structural and 32 are sampling zeros (panel~b): the latter fall where the latent intensity is low, the former where the inflation probability is high, and the data do not tell them apart (panel~a).
+Fitted to these counts, ZISAR recovers a smooth latent intensity that carries the spatial dependence ($\hat\rho = 0.55$, and a correlation of 0.90 with the true $\boldsymbol\eta$; panel~c) and gives each zero a probability of being structural, obtained by Bayes' rule from the mixture \eqref{eq:mixture} at the estimates (panel~d).
+This probability averages 0.74 for the structural zeros and 0.52 for the sampling ones: the separation is partial because, where the intensity is low, a sampling zero is likely too, and Section~\ref{sec:solar} shows that it sharpens when the count process predicts many events.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/model_components.pdf}
+\caption{The two components of the restricted ZISAR on a synthetic region of 300 units ($\rho = 0.5$, six nearest neighbours). (a) Observed counts. (b) True kind of each zero: sampling zeros of the count process and structural zeros of the inflation process. (c) Latent intensity $\hat\eta_i$ estimated by ZISAR. (d) Estimated probability that each observed zero is structural; units with a positive count in grey.}\label{fig:components}
+\end{figure}
+
 % ---------------------------------------------------------------------------
 \subsection{Full parameter vector and special cases}\label{sec:model_cases}
 

@@ -20,6 +20,8 @@ jobs:
       group: pkgdown-${{ github.event_name != 'pull_request' || github.run_id }}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -32,10 +34,20 @@ jobs:
           extra-packages: any::pkgdown, local::.
           needs: website
 
+      # Not build_site_github_pages(): the site URL is on the personal domain,
+      # and it would write a CNAME for www.niccolosalvini.me. The site is
+      # served at niccolosalvini.github.io/zisar/, and the personal site
+      # (NiccoloSalvini/sito-personale) proxies /packages/zisar/ to it.
       - name: Build site
-        run: pkgdown::build_site(new_process = FALSE, install = FALSE)
+        run: |
+          pkgdown::build_site(new_process = FALSE, install = FALSE)
+          file.create("docs/.nojekyll")
         shell: Rscript {0}
 
-      # The site is published from the personal site repository
-      # (NiccoloSalvini/sito-personale, public/packages/zisar/); this job only
-      # checks that it builds
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4.7.3
+        with:
+          clean: false
+          branch: gh-pages
+          folder: docs

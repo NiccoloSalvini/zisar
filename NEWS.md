@@ -21,6 +21,9 @@
 * New argument `restarts = FALSE` skips the restarts of a fit that fails the
   checks, for slow fits where a large gradient is expected.
 * `rzisar()` gains `zero_spatial`; `rho0` and `sigma0` now need it.
+* The README and `vignette("zisar")` explain the model with two figures: the
+  two kinds of zeros and the reach of the spatial multiplier
+  (`data-raw/figures.R`).
 
 # zisar 0.1.0
 

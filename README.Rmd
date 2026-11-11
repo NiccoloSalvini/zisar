@@ -13,6 +13,7 @@ options(digits = 4)
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/NiccoloSalvini/zisar/actions/workflows/R-CMD-check.yaml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24118297.svg)](https://doi.org/10.5281/zenodo.24118297)
 <!-- badges: end -->
 
 **zisar** fits the zero-inflated spatial autoregressive (ZISAR) model for

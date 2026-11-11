@@ -12,9 +12,5 @@
 ^cran-comments\.md$
 ^codecov\.yml$
 ^paper$
-^tex$
-^notebooks$
-^slides$
 ^\.git$
-^data$
 ^data-raw$

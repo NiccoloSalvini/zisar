@@ -21,6 +21,17 @@ y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(e^{\eta_i}, \kappa),
 \qquad \mathrm{logit}(\pi_i) = z_i'\gamma .
 $$
 
+A zero is either *structural*, from a unit out of the process, or a
+*sampling* zero of the negative binomial; and a change in one unit
+reaches the others through the spatial multiplier, further the larger
+$\rho$:
+
+<p align="center">
+
+<img src="man/figures/zeros.png" width="49%" alt="The zero bar of a zero-inflated negative binomial splits into structural and sampling zeros" />
+<img src="man/figures/multiplier.png" width="49%" alt="The effect of a change in one cell spreads further on the lattice as rho grows" />
+</p>
+
 With `zero_spatial = "reduced"` the zero-inflation predictor gets a
 reduced-rank spatial field of its own, for structural zeros that cluster
 in space.
@@ -110,5 +121,5 @@ structural zeros and large data sets.
 
 Salvini N, Arbia G, Nardelli V (2026). “ZISAR: A Zero-Inflated Spatial
 Autoregressive Model for Count Data with Random Effects.” Preprint,
-Zenodo. doi:10.5281/zenodo.24118297
+Zenodo. <doi:10.5281/zenodo.24118297>
 <https://doi.org/10.5281/zenodo.24118297>.

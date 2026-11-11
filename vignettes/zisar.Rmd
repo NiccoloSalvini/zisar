@@ -41,7 +41,28 @@ y_i \sim \pi_i \, 1\{y_i = 0\} + (1 - \pi_i)\,\mathrm{NB}(\mu_i, \kappa),
 \qquad \mathrm{logit}(\pi_i) = z_i'\gamma.
 \]
 
-The spatial multiplier \((I - \rho W)^{-1}\) acts on the *latent* predictor,
+A zero can come from either part of the mixture. A *structural* zero comes
+from a unit that is out of the process altogether, with probability
+\(\pi_i\); a *sampling* zero from a unit in the process whose negative
+binomial count happens to be zero. Only the second kind carries information
+on \(\eta_i\), and the model tells them apart through the covariates \(z_i\)
+and through the intensity of the neighbours.
+
+```{r fig-zeros, echo = FALSE, out.width = "100%", fig.alt = "Bar chart of a zero-inflated negative binomial: the bar at zero splits into structural zeros, with probability pi, and sampling zeros of the negative binomial."}
+knitr::include_graphics("figures/zeros.png")
+```
+
+The spatial multiplier \((I - \rho W)^{-1}\) carries a change in the
+predictor of one unit to all the others: the effect decays with the number
+of steps in \(W\), at a rate set by \(\rho\). With \(\rho = 0.2\) it stays
+within the first ring of neighbours; with \(\rho = 0.8\) it covers the whole
+lattice.
+
+```{r fig-multiplier, echo = FALSE, out.width = "100%", fig.alt = "Effect on eta of a unit change in the centre cell of a 15 by 15 lattice with queen contiguity: it stays near the centre with rho 0.2 and covers the whole lattice with rho 0.8."}
+knitr::include_graphics("figures/multiplier.png")
+```
+
+The multiplier acts on the *latent* predictor,
 not on the observed counts, so the model has no endogenous regressor and is
 estimated by maximum likelihood. Overdispersion has three sources: the
 negative binomial shape \(\kappa\), the structural zeros \(\pi_i\) and the

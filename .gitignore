@@ -5,44 +5,14 @@
 docs/
 inst/doc
 
-# Paper, notebooks, slides and data: kept locally, not versioned
+# Paper (LaTeX), notebooks, slides and data: kept locally in paper/, not versioned
 /paper/
-
-# Compiled TMB objects
-notebooks/*.o
-notebooks/*.so
-
-# LaTeX auxiliary files
-tex/*.aux
-tex/*.bbl
-tex/*.blg
-tex/*.log
-tex/*.out
-tex/*.toc
-tex/*.synctex.gz
-
-# R data (large binary)
-data/*.rds
 
 # Local tool state
 .omc/
 
 # macOS
 .DS_Store
-
-# Solar PV application: downloaded sources (re-created by notebooks/solar_data.r)
-data/solar/raw/
-data/solar/*.rds
-data/solar/solar_boom_reps/
-notebooks/solar_results.rds
-
-# Shoplifting application: downloaded sources (re-created by notebooks/crime_data.r)
-data/crime/raw/
-data/crime/*.rds
-notebooks/crime_results.rds
-notebooks/crime_fits.rds
-notebooks/crime_application*.log
-data/*/*.log
 
 # Stray R graphics device output
 Rplots.pdf
